@@ -1,0 +1,76 @@
+# ==========================
+# OS generated files
+# ==========================
+.DS_Store
+.DS_Store?
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# ==========================
+# Python
+# ==========================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+*.whl
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# ==========================
+# Jupyter Notebook
+# ==========================
+.ipynb_checkpoints/
+
+# ==========================
+# IDE / Editor
+# ==========================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.settings/
+
+# ==========================
+# ML Artifacts & Outputs
+# ==========================
+artifacts/
+checkpoints/
+logs/
+
+# ==========================
+# Node.js (ui/)
+# ==========================
+ui/node_modules/
+ui/dist/
+ui/tsconfig.tsbuildinfo
+
+# ==========================
+# pytest
+# ==========================
+.pytest_cache/
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+
+# ==========================
+# Misc
+# ==========================
+*.log
+*.bak
+*.tmp
