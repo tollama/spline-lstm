@@ -78,6 +78,9 @@ def test_phase6_agent_tool_and_tollama_endpoints() -> None:
     tool_names = {x["name"] for x in mcp.json()["data"]["tools"]}
     assert "list_artifacts" in tool_names
     assert "compare_runs" in tool_names
+    mcp = client.get("/api/v1/mcp/capabilities")
+    assert mcp.status_code == 200
+    assert mcp.json()["data"]["server"] == "spline-forecast-mcp"
 
     tags = client.get("/api/tags")
     assert tags.status_code == 200

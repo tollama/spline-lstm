@@ -64,6 +64,8 @@ For the Phase 6 expansion roadmap (covariates, user-adjustable inputs, MCP/Skill
 - Agent tool registry/invoke: `GET /api/v1/agent/tools`, `POST /api/v1/agent/tools:invoke`
 - MCP capability descriptor: `GET /api/v1/mcp/capabilities`
 - Pilot readiness endpoint (rollout + kill-switch view): `GET /api/v1/pilot/readiness`
+- Agent tool registry/invoke: `GET /api/v1/agent/tools`, `POST /api/v1/agent/tools:invoke`
+- MCP capability descriptor: `GET /api/v1/mcp/capabilities`
 - Tollama-compatible adapter endpoints: `GET /api/tags`, `POST /api/generate`, `POST /api/chat`
 - Reusable local skill package for agents: `skills/forecast-ops/SKILL.md`
 

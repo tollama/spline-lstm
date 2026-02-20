@@ -16,6 +16,8 @@ Use this skill when an agent needs to orchestrate Phase 6 forecast operations th
 5. Validate covariate schema/payload: `POST /api/v1/covariates/validate`
 6. Poll job status: `GET /api/v1/jobs/{job_id}`
 7. Retrieve artifacts/metrics as needed.
+5. Poll job status: `GET /api/v1/jobs/{job_id}`
+6. Retrieve artifacts/metrics as needed.
 
 ## Agent / MCP Discovery
 

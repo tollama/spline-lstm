@@ -1095,6 +1095,10 @@ def invoke_agent_tool(payload: AgentToolInvokeRequest, request: Request) -> Dict
     if payload.tool not in supported:
         raise HTTPException(status_code=400, detail="unsupported tool")
     response = {
+    supported = {"run_preprocessing", "run_training", "run_inference", "get_run_status"}
+    if payload.tool not in supported:
+        raise HTTPException(status_code=400, detail="unsupported tool")
+    return {
         "ok": True,
         "data": {
             "tool": payload.tool,
