@@ -1,0 +1,19 @@
+{
+  "n_total": 180,
+  "train": {
+    "start": 0,
+    "end": 115
+  },
+  "val": {
+    "start": 115,
+    "end": 144
+  },
+  "test": {
+    "start": 144,
+    "end": 180
+  },
+  "ratios": {
+    "test_size": 0.2,
+    "val_size": 0.2
+  }
+}

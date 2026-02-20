@@ -1,0 +1,17 @@
+{
+  "run_id": "smoke-phase4-20260218-191832",
+  "input_path": "data/raw/smoke_input.csv",
+  "n_rows": 180,
+  "X_shape": [
+    156,
+    24,
+    1
+  ],
+  "y_shape": [
+    156,
+    1
+  ],
+  "covariate_cols": [],
+  "X_mv_shape": null,
+  "y_mv_shape": null
+}

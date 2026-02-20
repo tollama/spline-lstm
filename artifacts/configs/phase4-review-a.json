@@ -1,0 +1,21 @@
+{
+  "sequence_length": 24,
+  "horizon": 1,
+  "hidden_units": [
+    64,
+    32
+  ],
+  "dropout": 0.2,
+  "learning_rate": 0.003,
+  "epochs": 5,
+  "batch_size": 16,
+  "test_size": 0.2,
+  "val_size": 0.2,
+  "normalize": true,
+  "normalize_method": "minmax",
+  "seed": 123,
+  "processed_npz": null,
+  "input_npy": null,
+  "synthetic_samples": 360,
+  "synthetic_noise": 0.06
+}

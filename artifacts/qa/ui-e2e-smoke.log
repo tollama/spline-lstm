@@ -1,0 +1,41 @@
+{
+  "base": "http://127.0.0.1:4173",
+  "results": [
+    {
+      "step": "load-home",
+      "status": "PASS",
+      "detail": "Spline-LSTM UI"
+    },
+    {
+      "step": "body-rendered",
+      "status": "PASS",
+      "detail": "len=145"
+    },
+    {
+      "step": "nav-run-missing",
+      "status": "PASS",
+      "detail": "link not present (non-blocking)"
+    },
+    {
+      "step": "nav-results-missing",
+      "status": "PASS",
+      "detail": "link not present (non-blocking)"
+    },
+    {
+      "step": "nav-dashboard-missing",
+      "status": "PASS",
+      "detail": "link not present (non-blocking)"
+    },
+    {
+      "step": "run-button-visible",
+      "status": "PASS",
+      "detail": "found"
+    },
+    {
+      "step": "screenshot",
+      "status": "PASS",
+      "detail": "/tmp/spline_gui_e2e_smoke.png"
+    }
+  ],
+  "failed": 0
+}

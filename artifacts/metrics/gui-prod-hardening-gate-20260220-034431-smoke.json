@@ -1,0 +1,181 @@
+{
+  "run_id": "gui-prod-hardening-gate-20260220-034431-smoke",
+  "backend": "tensorflow",
+  "config": {
+    "sequence_length": 24,
+    "horizon": 1,
+    "hidden_units": [
+      64,
+      32
+    ],
+    "dropout": 0.2,
+    "learning_rate": 0.001,
+    "epochs": 1,
+    "batch_size": 32,
+    "test_size": 0.2,
+    "val_size": 0.2,
+    "normalize": true,
+    "normalize_method": "minmax",
+    "seed": 42,
+    "deterministic": true,
+    "ma_window": null,
+    "processed_npz": "artifacts/processed/gui-prod-hardening-gate-20260220-034431-smoke/processed.npz",
+    "preprocessor_pkl": "artifacts/models/gui-prod-hardening-gate-20260220-034431-smoke/preprocessor.pkl",
+    "input_npy": null,
+    "synthetic_samples": 800,
+    "synthetic_noise": 0.08,
+    "model_type": "lstm",
+    "feature_mode": "univariate",
+    "target_cols": [
+      "target"
+    ],
+    "dynamic_covariates": [],
+    "static_covariates": [],
+    "covariate_spec": {},
+    "covariate_contract": {
+      "enabled": false,
+      "schema_version": null,
+      "dynamic_covariates": [],
+      "static_covariates": [],
+      "required_missing": [],
+      "declared_missing_in_columns": [],
+      "spec": {}
+    },
+    "export_formats": [
+      "none"
+    ]
+  },
+  "metrics": {
+    "mae": 0.7277946472167969,
+    "mse": 0.6519441604614258,
+    "rmse": 0.8074305653572083,
+    "mape": 96.1304702758789,
+    "mase": 6.666135787963867,
+    "r2": -0.019965648651123047
+  },
+  "baselines": {
+    "lstm": {
+      "mae": 0.7277946472167969,
+      "mse": 0.6519441604614258,
+      "rmse": 0.8074305653572083,
+      "mape": 96.1304702758789,
+      "r2": -0.019965648651123047
+    },
+    "naive_last": {
+      "mae": 0.10807233303785324,
+      "mse": 0.0182039774954319,
+      "rmse": 0.1349221169948578,
+      "mape": 30.89461326599121,
+      "r2": 0.9715198874473572
+    },
+    "moving_average_24": {
+      "window": 24,
+      "mae": 0.9417116641998291,
+      "mse": 1.1250026226043701,
+      "rmse": 1.0606614351272583,
+      "mape": 194.964599609375,
+      "r2": -0.760064959526062
+    },
+    "relative_improvement_rmse_pct": {
+      "vs_naive_last": -498.44192597703517,
+      "vs_moving_average_24": 23.874806700423377
+    },
+    "metrics": {
+      "model": {
+        "mae": 0.7277946472167969,
+        "mse": 0.6519441604614258,
+        "rmse": 0.8074305653572083,
+        "mape": 96.1304702758789,
+        "r2": -0.019965648651123047
+      },
+      "baseline": {
+        "naive": {
+          "mae": 0.10807233303785324,
+          "mse": 0.0182039774954319,
+          "rmse": 0.1349221169948578,
+          "mape": 30.89461326599121,
+          "r2": 0.9715198874473572
+        },
+        "ma": {
+          "window": 24,
+          "mae": 0.9417116641998291,
+          "mse": 1.1250026226043701,
+          "rmse": 1.0606614351272583,
+          "mape": 194.964599609375,
+          "r2": -0.760064959526062
+        }
+      },
+      "delta_vs_baseline": {
+        "naive": {
+          "rmse_improvement_pct": -498.44192597703517
+        },
+        "ma": {
+          "rmse_improvement_pct": 23.874806700423377
+        }
+      }
+    },
+    "evaluation_context": {
+      "split": "test",
+      "scale": "train_fit_only_then_transform",
+      "horizon": 1,
+      "sequence_length": 24
+    }
+  },
+  "checkpoints": {
+    "best": "artifacts/checkpoints/gui-prod-hardening-gate-20260220-034431-smoke/best.keras",
+    "last": "artifacts/checkpoints/gui-prod-hardening-gate-20260220-034431-smoke/last.keras"
+  },
+  "preprocessor": "artifacts/models/gui-prod-hardening-gate-20260220-034431-smoke/preprocessor.pkl",
+  "split_indices": {
+    "n_total": 156,
+    "train": {
+      "start": 0,
+      "end": 99
+    },
+    "val": {
+      "start": 99,
+      "end": 124
+    },
+    "test": {
+      "start": 124,
+      "end": 156
+    },
+    "ratios": {
+      "test_size": 0.2,
+      "val_size": 0.2
+    },
+    "source": "processed_xy"
+  },
+  "inference": {
+    "x_shape": [
+      1,
+      24,
+      1
+    ],
+    "y_true_last": [
+      -1.0761159658432007
+    ],
+    "y_pred_last": [
+      -0.4631340205669403
+    ],
+    "predictions_csv": "artifacts/predictions/gui-prod-hardening-gate-20260220-034431-smoke.csv"
+  },
+  "timestamps": {
+    "start": "2026-02-20T03:45:04.459018",
+    "end": "2026-02-20T03:45:05.276350",
+    "saved_at": "2026-02-20T03:45:05.309608"
+  },
+  "commit_hash": null,
+  "commit_hash_source": "unavailable",
+  "metadata_path": "artifacts/metadata/gui-prod-hardening-gate-20260220-034431-smoke.json",
+  "runmeta_path": "artifacts/runs/gui-prod-hardening-gate-20260220-034431-smoke.meta.json",
+  "covariate_schema": {
+    "enabled": false,
+    "schema_version": null,
+    "dynamic_covariates": [],
+    "static_covariates": [],
+    "required_missing": [],
+    "declared_missing_in_columns": [],
+    "spec": {}
+  }
+}

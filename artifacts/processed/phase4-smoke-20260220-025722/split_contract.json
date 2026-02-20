@@ -1,0 +1,94 @@
+{
+  "schema_version": "phase1.split_contract.v1",
+  "run_id": "phase4-smoke-20260220-025722",
+  "processed_npz": "artifacts/processed/phase4-smoke-20260220-025722/processed.npz",
+  "window_keys": {
+    "X": "X",
+    "y": "y",
+    "time_index": "timestamps"
+  },
+  "canonical_outputs": {
+    "X_train": {
+      "source": "X",
+      "slice": [
+        0,
+        100
+      ]
+    },
+    "X_val": {
+      "source": "X",
+      "slice": [
+        100,
+        125
+      ]
+    },
+    "X_test": {
+      "source": "X",
+      "slice": [
+        125,
+        156
+      ]
+    },
+    "y_train": {
+      "source": "y",
+      "slice": [
+        0,
+        100
+      ]
+    },
+    "y_val": {
+      "source": "y",
+      "slice": [
+        100,
+        125
+      ]
+    },
+    "y_test": {
+      "source": "y",
+      "slice": [
+        125,
+        156
+      ]
+    },
+    "time_index_train": {
+      "source": "timestamps",
+      "slice": [
+        0,
+        100
+      ]
+    },
+    "time_index_val": {
+      "source": "timestamps",
+      "slice": [
+        100,
+        125
+      ]
+    },
+    "time_index_test": {
+      "source": "timestamps",
+      "slice": [
+        125,
+        156
+      ]
+    }
+  },
+  "split_index": {
+    "n_windows": 156,
+    "train": {
+      "start": 0,
+      "end": 100
+    },
+    "val": {
+      "start": 100,
+      "end": 125
+    },
+    "test": {
+      "start": 125,
+      "end": 156
+    },
+    "ratios": {
+      "test_size": 0.2,
+      "val_size": 0.2
+    }
+  }
+}

@@ -1,0 +1,61 @@
+{
+  "run_id": "alias-pr-20260220-032059-smoke",
+  "created_at": "2026-02-20T03:21:31.184851",
+  "cwd": "/Users/ychoi/spline-lstm",
+  "commit_hash": null,
+  "commit_hash_source": "unavailable",
+  "git_commit": null,
+  "seed": {
+    "seed": 42,
+    "pythonhashseed": "42",
+    "python_random": true,
+    "numpy_random": true,
+    "tensorflow_random": true,
+    "tensorflow_op_determinism": true,
+    "deterministic_requested": true
+  },
+  "config_snapshot": {
+    "sequence_length": 24,
+    "horizon": 1,
+    "hidden_units": [
+      64,
+      32
+    ],
+    "dropout": 0.2,
+    "learning_rate": 0.001,
+    "epochs": 1,
+    "batch_size": 32,
+    "test_size": 0.2,
+    "val_size": 0.2,
+    "normalize": true,
+    "normalize_method": "minmax",
+    "seed": 42,
+    "deterministic": true,
+    "ma_window": null,
+    "processed_npz": "artifacts/processed/alias-pr-20260220-032059-smoke/processed.npz",
+    "preprocessor_pkl": "artifacts/models/alias-pr-20260220-032059-smoke/preprocessor.pkl",
+    "input_npy": null,
+    "synthetic_samples": 800,
+    "synthetic_noise": 0.08,
+    "model_type": "lstm",
+    "feature_mode": "univariate",
+    "target_cols": [
+      "target"
+    ],
+    "dynamic_covariates": [],
+    "static_covariates": [],
+    "covariate_spec": {},
+    "covariate_contract": {
+      "enabled": false,
+      "schema_version": null,
+      "dynamic_covariates": [],
+      "static_covariates": [],
+      "required_missing": [],
+      "declared_missing_in_columns": [],
+      "spec": {}
+    },
+    "export_formats": [
+      "none"
+    ]
+  }
+}

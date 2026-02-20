@@ -1,0 +1,14 @@
+{
+  "schema_version": "covariate_spec.v1",
+  "dynamic_covariates": [
+    {"name": "temp", "type": "numeric", "required": false},
+    {"name": "promo", "type": "numeric", "required": false}
+  ],
+  "static_covariates": [
+    {"name": "store_id", "type": "categorical", "required": false}
+  ],
+  "imputation_policy": {
+    "dynamic_covariates": "ffill_bfill_then_zero",
+    "static_covariates": "unknown_token"
+  }
+}

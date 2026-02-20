@@ -1,0 +1,181 @@
+{
+  "run_id": "alias-smoke-001",
+  "backend": "tensorflow",
+  "config": {
+    "sequence_length": 24,
+    "horizon": 1,
+    "hidden_units": [
+      64,
+      32
+    ],
+    "dropout": 0.2,
+    "learning_rate": 0.001,
+    "epochs": 1,
+    "batch_size": 32,
+    "test_size": 0.2,
+    "val_size": 0.2,
+    "normalize": true,
+    "normalize_method": "minmax",
+    "seed": 42,
+    "deterministic": true,
+    "ma_window": null,
+    "processed_npz": "artifacts/processed/alias-smoke-001/processed.npz",
+    "preprocessor_pkl": "artifacts/models/alias-smoke-001/preprocessor.pkl",
+    "input_npy": null,
+    "synthetic_samples": 800,
+    "synthetic_noise": 0.08,
+    "model_type": "lstm",
+    "feature_mode": "univariate",
+    "target_cols": [
+      "target"
+    ],
+    "dynamic_covariates": [],
+    "static_covariates": [],
+    "covariate_spec": {},
+    "covariate_contract": {
+      "enabled": false,
+      "schema_version": null,
+      "dynamic_covariates": [],
+      "static_covariates": [],
+      "required_missing": [],
+      "declared_missing_in_columns": [],
+      "spec": {}
+    },
+    "export_formats": [
+      "none"
+    ]
+  },
+  "metrics": {
+    "mae": 0.7370272278785706,
+    "mse": 0.6635475158691406,
+    "rmse": 0.8145842552185059,
+    "mape": 413.42291259765625,
+    "mase": 7.188196182250977,
+    "r2": 0.008547186851501465
+  },
+  "baselines": {
+    "lstm": {
+      "mae": 0.7370272278785706,
+      "mse": 0.6635475158691406,
+      "rmse": 0.8145842552185059,
+      "mape": 413.42291259765625,
+      "r2": 0.008547186851501465
+    },
+    "naive_last": {
+      "mae": 0.0993320643901825,
+      "mse": 0.015369638800621033,
+      "rmse": 0.12397434562444687,
+      "mape": 129.9814910888672,
+      "r2": 0.9770351648330688
+    },
+    "moving_average_24": {
+      "window": 24,
+      "mae": 0.9370969533920288,
+      "mse": 1.125150442123413,
+      "rmse": 1.060731053352356,
+      "mape": 1367.4351806640625,
+      "r2": -0.6811660528182983
+    },
+    "relative_improvement_rmse_pct": {
+      "vs_naive_last": -557.0586804952713,
+      "vs_moving_average_24": 23.20539169993974
+    },
+    "metrics": {
+      "model": {
+        "mae": 0.7370272278785706,
+        "mse": 0.6635475158691406,
+        "rmse": 0.8145842552185059,
+        "mape": 413.42291259765625,
+        "r2": 0.008547186851501465
+      },
+      "baseline": {
+        "naive": {
+          "mae": 0.0993320643901825,
+          "mse": 0.015369638800621033,
+          "rmse": 0.12397434562444687,
+          "mape": 129.9814910888672,
+          "r2": 0.9770351648330688
+        },
+        "ma": {
+          "window": 24,
+          "mae": 0.9370969533920288,
+          "mse": 1.125150442123413,
+          "rmse": 1.060731053352356,
+          "mape": 1367.4351806640625,
+          "r2": -0.6811660528182983
+        }
+      },
+      "delta_vs_baseline": {
+        "naive": {
+          "rmse_improvement_pct": -557.0586804952713
+        },
+        "ma": {
+          "rmse_improvement_pct": 23.20539169993974
+        }
+      }
+    },
+    "evaluation_context": {
+      "split": "test",
+      "scale": "train_fit_only_then_transform",
+      "horizon": 1,
+      "sequence_length": 24
+    }
+  },
+  "checkpoints": {
+    "best": "artifacts/checkpoints/alias-smoke-001/best.keras",
+    "last": "artifacts/checkpoints/alias-smoke-001/last.keras"
+  },
+  "preprocessor": "artifacts/models/alias-smoke-001/preprocessor.pkl",
+  "split_indices": {
+    "n_total": 156,
+    "train": {
+      "start": 0,
+      "end": 99
+    },
+    "val": {
+      "start": 99,
+      "end": 124
+    },
+    "test": {
+      "start": 124,
+      "end": 156
+    },
+    "ratios": {
+      "test_size": 0.2,
+      "val_size": 0.2
+    },
+    "source": "processed_xy"
+  },
+  "inference": {
+    "x_shape": [
+      1,
+      24,
+      1
+    ],
+    "y_true_last": [
+      -1.1874074935913086
+    ],
+    "y_pred_last": [
+      -0.45536521077156067
+    ],
+    "predictions_csv": "artifacts/predictions/alias-smoke-001.csv"
+  },
+  "timestamps": {
+    "start": "2026-02-20T03:20:35.053962",
+    "end": "2026-02-20T03:20:35.870642",
+    "saved_at": "2026-02-20T03:20:35.903038"
+  },
+  "commit_hash": null,
+  "commit_hash_source": "unavailable",
+  "metadata_path": "artifacts/metadata/alias-smoke-001.json",
+  "runmeta_path": "artifacts/runs/alias-smoke-001.meta.json",
+  "covariate_schema": {
+    "enabled": false,
+    "schema_version": null,
+    "dynamic_covariates": [],
+    "static_covariates": [],
+    "required_missing": [],
+    "declared_missing_in_columns": [],
+    "spec": {}
+  }
+}

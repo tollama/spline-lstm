@@ -1,0 +1,12 @@
+[SMOKE] run_id=day5-final-smoke-20260220-030319
+[E2E] run_id=day5-final-smoke-20260220-030319
+[E2E] step1/3 preprocessing
+[E2E] step2/3 training runner
+[E2E] step3/3 health check
+[E2E][OK] completed
+- metrics: artifacts/metrics/day5-final-smoke-20260220-030319.json
+- report:  artifacts/reports/day5-final-smoke-20260220-030319.md
+- best:    artifacts/checkpoints/day5-final-smoke-20260220-030319/best.keras
+[SMOKE][OK] metrics schema validated
+[SMOKE][OK] all checks passed
+[SMOKE] validation report: artifacts/reports/day5-final-smoke-20260220-030319_smoke_validation.md

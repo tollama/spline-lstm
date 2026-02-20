@@ -1,0 +1,50 @@
+{
+  "run_id": "repro_b",
+  "backend": "tensorflow",
+  "config": {
+    "sequence_length": 24,
+    "horizon": 1,
+    "hidden_units": [
+      64,
+      32
+    ],
+    "dropout": 0.2,
+    "learning_rate": 0.001,
+    "epochs": 1,
+    "batch_size": 32,
+    "test_size": 0.2,
+    "val_size": 0.2,
+    "normalize": true,
+    "normalize_method": "minmax",
+    "seed": 42
+  },
+  "metrics": {
+    "mae": 0.19290512800216675,
+    "mse": 0.053349025547504425,
+    "rmse": 0.23097407817840576,
+    "mape": 139.8519287109375,
+    "r2": 0.25082463026046753
+  },
+  "checkpoints": {
+    "best": "artifacts/checkpoints/repro_b/best.keras",
+    "last": "artifacts/checkpoints/repro_b/last.keras"
+  },
+  "inference": {
+    "x_shape": [
+      1,
+      24,
+      1
+    ],
+    "y_true_last": [
+      0.5375630855560303
+    ],
+    "y_pred_last": [
+      0.31935787200927734
+    ]
+  },
+  "timestamps": {
+    "start": "2026-02-18T17:43:31.987355",
+    "end": "2026-02-18T17:43:32.876790",
+    "saved_at": "2026-02-18T17:43:32.898392"
+  }
+}

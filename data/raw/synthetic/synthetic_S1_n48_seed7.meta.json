@@ -1,0 +1,36 @@
+{
+  "generator": "src.data.synthetic_generator",
+  "config": {
+    "scenario": "S1",
+    "n_samples": 48,
+    "freq": "h",
+    "start": "2025-01-01",
+    "seed": 7,
+    "noise_scale": 0.2,
+    "covariates": [
+      "temp",
+      "promo"
+    ],
+    "out_dir": "data/raw/synthetic",
+    "file_stem": null
+  },
+  "outputs": {
+    "csv": "data/raw/synthetic/synthetic_S1_n48_seed7.csv",
+    "meta": "data/raw/synthetic/synthetic_S1_n48_seed7.meta.json"
+  },
+  "stats": {
+    "rows": 48,
+    "columns": [
+      "timestamp",
+      "target",
+      "temp",
+      "promo"
+    ],
+    "target_mean": 10.675400776587423,
+    "target_std": 1.1441488339245982,
+    "target_min": 8.52910763449875,
+    "target_max": 12.605619637249992,
+    "timestamp_start": "2025-01-01 00:00:00",
+    "timestamp_end": "2025-01-02 23:00:00"
+  }
+}

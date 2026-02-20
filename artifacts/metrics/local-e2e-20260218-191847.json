@@ -1,0 +1,111 @@
+{
+  "run_id": "local-e2e-20260218-191847",
+  "backend": "tensorflow",
+  "config": {
+    "sequence_length": 24,
+    "horizon": 1,
+    "hidden_units": [
+      64,
+      32
+    ],
+    "dropout": 0.2,
+    "learning_rate": 0.001,
+    "epochs": 1,
+    "batch_size": 32,
+    "test_size": 0.2,
+    "val_size": 0.2,
+    "normalize": true,
+    "normalize_method": "minmax",
+    "seed": 42,
+    "processed_npz": "artifacts/processed/local-e2e-20260218-191847/processed.npz",
+    "preprocessor_pkl": "artifacts/models/local-e2e-20260218-191847/preprocessor.pkl",
+    "input_npy": null,
+    "synthetic_samples": 800,
+    "synthetic_noise": 0.08
+  },
+  "metrics": {
+    "mae": 0.09901522845029831,
+    "mse": 0.014117914251983166,
+    "rmse": 0.11881882697343826,
+    "mape": 790.7070922851562,
+    "r2": -9.948519706726074
+  },
+  "baselines": {
+    "lstm": {
+      "mae": 0.09901522845029831,
+      "mse": 0.014117914251983166,
+      "rmse": 0.11881882697343826,
+      "mape": 790.7070922851562,
+      "r2": -9.948519706726074
+    },
+    "naive_last": {
+      "mae": 0.023195186629891396,
+      "mse": 0.000761733390390873,
+      "rmse": 0.0275995172560215,
+      "mape": 104.6367416381836,
+      "r2": 0.40927159786224365
+    },
+    "moving_average_3": {
+      "mae": 0.034251634031534195,
+      "mse": 0.001579990261234343,
+      "rmse": 0.03974908962845802,
+      "mape": 197.24606323242188,
+      "r2": -0.22529113292694092
+    },
+    "relative_improvement_rmse_pct": {
+      "vs_naive_last": -330.510406469064,
+      "vs_moving_average_3": -198.9220839819248
+    },
+    "evaluation_context": {
+      "split": "test",
+      "scale": "train_fit_only_then_transform",
+      "horizon": 1,
+      "sequence_length": 24
+    }
+  },
+  "checkpoints": {
+    "best": "artifacts/checkpoints/local-e2e-20260218-191847/best.keras",
+    "last": "artifacts/checkpoints/local-e2e-20260218-191847/last.keras"
+  },
+  "preprocessor": "artifacts/models/local-e2e-20260218-191847/preprocessor.pkl",
+  "split_indices": {
+    "n_total": 180,
+    "train": {
+      "start": 0,
+      "end": 115
+    },
+    "val": {
+      "start": 115,
+      "end": 144
+    },
+    "test": {
+      "start": 144,
+      "end": 180
+    },
+    "ratios": {
+      "test_size": 0.2,
+      "val_size": 0.2
+    }
+  },
+  "inference": {
+    "x_shape": [
+      1,
+      24,
+      1
+    ],
+    "y_true_last": [
+      0.10343682765960693
+    ],
+    "y_pred_last": [
+      0.09150988608598709
+    ]
+  },
+  "timestamps": {
+    "start": "2026-02-18T19:18:52.314141",
+    "end": "2026-02-18T19:18:53.166548",
+    "saved_at": "2026-02-18T19:18:53.257434"
+  },
+  "commit_hash": null,
+  "commit_hash_source": "unavailable",
+  "metadata_path": "artifacts/metadata/local-e2e-20260218-191847.json"
+}

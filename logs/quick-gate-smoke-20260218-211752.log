@@ -1,0 +1,138 @@
+[SMOKE] run_id=quick-syn-20260218-211752
+[E2E] run_id=quick-syn-20260218-211752
+[E2E] step1/2 preprocessing smoke
+[OK] preprocessing smoke completed
+- processed: artifacts/processed/quick-syn-20260218-211752/processed.npz
+- preprocessor: artifacts/models/quick-syn-20260218-211752/preprocessor.pkl
+- meta: artifacts/processed/quick-syn-20260218-211752/meta.json
+[E2E] step2/2 training runner
+[1m1/4[0m [32m━━━━━[0m[37m━━━━━━━━━━━━━━━[0m [1m1s[0m 588ms/step - loss: 0.9393 - mae: 0.8668[1m4/4[0m [32m━━━━━━━━━━━━━━━━━━━━[0m[37m[0m [1m1s[0m 40ms/step - loss: 0.8963 - mae: 0.8492 - val_loss: 1.0441 - val_mae: 0.9565
+{
+  "run_id": "quick-syn-20260218-211752",
+  "backend": "tensorflow",
+  "config": {
+    "sequence_length": 24,
+    "horizon": 1,
+    "hidden_units": [
+      64,
+      32
+    ],
+    "dropout": 0.2,
+    "learning_rate": 0.001,
+    "epochs": 1,
+    "batch_size": 32,
+    "test_size": 0.2,
+    "val_size": 0.2,
+    "normalize": true,
+    "normalize_method": "minmax",
+    "seed": 42,
+    "processed_npz": "artifacts/processed/quick-syn-20260218-211752/processed.npz",
+    "preprocessor_pkl": "artifacts/models/quick-syn-20260218-211752/preprocessor.pkl",
+    "input_npy": null,
+    "synthetic_samples": 800,
+    "synthetic_noise": 0.08,
+    "model_type": "lstm",
+    "feature_mode": "univariate",
+    "target_cols": [
+      "target"
+    ],
+    "dynamic_covariates": [],
+    "static_covariates": [],
+    "covariate_spec": {},
+    "export_formats": [
+      "none"
+    ]
+  },
+  "metrics": {
+    "mae": 0.7470924854278564,
+    "mse": 0.6565112471580505,
+    "rmse": 0.8102537989616394,
+    "mape": 101.56614685058594,
+    "r2": 0.08058285713195801
+  },
+  "baselines": {
+    "lstm": {
+      "mae": 0.7470924854278564,
+      "mse": 0.6565112471580505,
+      "rmse": 0.8102537989616394,
+      "mape": 101.56614685058594,
+      "r2": 0.08058285713195801
+    },
+    "naive_last": {
+      "mae": 0.10228782892227173,
+      "mse": 0.015051660127937794,
+      "rmse": 0.12268520891666412,
+      "mape": 28.086423873901367,
+      "r2": 0.9789207577705383
+    },
+    "moving_average_3": {
+      "mae": 0.185739666223526,
+      "mse": 0.048294588923454285,
+      "rmse": 0.21976029872894287,
+      "mape": 53.519405364990234,
+      "r2": 0.9323654174804688
+    },
+    "relative_improvement_rmse_pct": {
+      "vs_naive_last": -560.4331117606084,
+      "vs_moving_average_3": -268.69888545753
+    },
+    "evaluation_context": {
+      "split": "test",
+      "scale": "train_fit_only_then_transform",
+      "horizon": 1,
+      "sequence_length": 24
+    }
+  },
+  "checkpoints": {
+    "best": "artifacts/checkpoints/quick-syn-20260218-211752/best.keras",
+    "last": "artifacts/checkpoints/quick-syn-20260218-211752/last.keras"
+  },
+  "preprocessor": "artifacts/models/quick-syn-20260218-211752/preprocessor.pkl",
+  "split_indices": {
+    "n_total": 156,
+    "train": {
+      "start": 0,
+      "end": 99
+    },
+    "val": {
+      "start": 99,
+      "end": 124
+    },
+    "test": {
+      "start": 124,
+      "end": 156
+    },
+    "ratios": {
+      "test_size": 0.2,
+      "val_size": 0.2
+    },
+    "source": "processed_xy"
+  },
+  "inference": {
+    "x_shape": [
+      1,
+      24,
+      1
+    ],
+    "y_true_last": [
+      -1.1201814413070679
+    ],
+    "y_pred_last": [
+      -0.4524453282356262
+    ]
+  },
+  "timestamps": {
+    "start": "2026-02-18T21:18:00.747820",
+    "end": "2026-02-18T21:18:00.747824",
+    "saved_at": "2026-02-18T21:18:00.773072"
+  },
+  "commit_hash": null,
+  "commit_hash_source": "unavailable",
+  "metadata_path": "artifacts/metadata/quick-syn-20260218-211752.json"
+}
+[E2E][OK] completed
+- metrics: artifacts/metrics/quick-syn-20260218-211752.json
+- report:  artifacts/reports/quick-syn-20260218-211752.md
+- best:    artifacts/checkpoints/quick-syn-20260218-211752/best.keras
+[SMOKE][OK] metrics schema validated
+[SMOKE][OK] all checks passed

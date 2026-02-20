@@ -1,0 +1,111 @@
+{
+  "run_id": "smoke-phase4-20260218-191910",
+  "backend": "tensorflow",
+  "config": {
+    "sequence_length": 24,
+    "horizon": 1,
+    "hidden_units": [
+      64,
+      32
+    ],
+    "dropout": 0.2,
+    "learning_rate": 0.001,
+    "epochs": 1,
+    "batch_size": 32,
+    "test_size": 0.2,
+    "val_size": 0.2,
+    "normalize": true,
+    "normalize_method": "minmax",
+    "seed": 42,
+    "processed_npz": "artifacts/processed/smoke-phase4-20260218-191910/processed.npz",
+    "preprocessor_pkl": "artifacts/models/smoke-phase4-20260218-191910/preprocessor.pkl",
+    "input_npy": null,
+    "synthetic_samples": 800,
+    "synthetic_noise": 0.08
+  },
+  "metrics": {
+    "mae": 0.11680243164300919,
+    "mse": 0.01763240620493889,
+    "rmse": 0.1327870637178421,
+    "mape": 2146.7958984375,
+    "r2": -8.863536834716797
+  },
+  "baselines": {
+    "lstm": {
+      "mae": 0.11680243164300919,
+      "mse": 0.01763240620493889,
+      "rmse": 0.1327870637178421,
+      "mape": 2146.7958984375,
+      "r2": -8.863536834716797
+    },
+    "naive_last": {
+      "mae": 0.022090071812272072,
+      "mse": 0.0008784094825387001,
+      "rmse": 0.029637973755598068,
+      "mape": 154.0748748779297,
+      "r2": 0.5086193084716797
+    },
+    "moving_average_3": {
+      "mae": 0.029437342658638954,
+      "mse": 0.0016317908884957433,
+      "rmse": 0.040395431220531464,
+      "mape": 174.03196716308594,
+      "r2": 0.08717906475067139
+    },
+    "relative_improvement_rmse_pct": {
+      "vs_naive_last": -348.0300509401591,
+      "vs_moving_average_3": -228.71796842845592
+    },
+    "evaluation_context": {
+      "split": "test",
+      "scale": "train_fit_only_then_transform",
+      "horizon": 1,
+      "sequence_length": 24
+    }
+  },
+  "checkpoints": {
+    "best": "artifacts/checkpoints/smoke-phase4-20260218-191910/best.keras",
+    "last": "artifacts/checkpoints/smoke-phase4-20260218-191910/last.keras"
+  },
+  "preprocessor": "artifacts/models/smoke-phase4-20260218-191910/preprocessor.pkl",
+  "split_indices": {
+    "n_total": 180,
+    "train": {
+      "start": 0,
+      "end": 115
+    },
+    "val": {
+      "start": 115,
+      "end": 144
+    },
+    "test": {
+      "start": 144,
+      "end": 180
+    },
+    "ratios": {
+      "test_size": 0.2,
+      "val_size": 0.2
+    }
+  },
+  "inference": {
+    "x_shape": [
+      1,
+      24,
+      1
+    ],
+    "y_true_last": [
+      0.08777425438165665
+    ],
+    "y_pred_last": [
+      0.0907067134976387
+    ]
+  },
+  "timestamps": {
+    "start": "2026-02-18T19:19:15.854060",
+    "end": "2026-02-18T19:19:16.768919",
+    "saved_at": "2026-02-18T19:19:16.866050"
+  },
+  "commit_hash": null,
+  "commit_hash_source": "unavailable",
+  "metadata_path": "artifacts/metadata/smoke-phase4-20260218-191910.json"
+}

@@ -1,0 +1,34 @@
+### health no token
+HTTP/1.1 200 OK
+date: Thu, 19 Feb 2026 18:55:25 GMT
+server: uvicorn
+content-length: 477
+content-type: application/json
+x-content-type-options: nosniff
+x-frame-options: DENY
+referrer-policy: no-referrer
+cache-control: no-store
+x-request-id: req-5e10ebcfcfbc
+
+{"ok":true,"data":{"status":"healthy","service":"backend-skeleton","ts":"2026-02-19T18:55:25.809756+00:00","executor_mode":"auto","security":{"dev_mode":false,"auth_required":true},"details":{"store":{"path":"/Users/ychoi/spline-lstm/backend/data/jobs_store.json","lock_path":"/Users/ychoi/spline-lstm/backend/data/jobs_store.json.lock","records":10,"corrupted_file":null,"last_save_error":null},"artifacts_dir":"/Users/ychoi/spline-lstm/artifacts","store_dir_writable":true}}}
+### jobs no token (expect 401)
+HTTP/1.1 401 Unauthorized
+date: Thu, 19 Feb 2026 18:55:25 GMT
+server: uvicorn
+content-length: 35
+content-type: application/json
+
+{"ok":false,"error":"unauthorized"}
+### jobs with token (expect 200)
+HTTP/1.1 200 OK
+date: Thu, 19 Feb 2026 18:55:25 GMT
+server: uvicorn
+content-length: 3947
+content-type: application/json
+x-content-type-options: nosniff
+x-frame-options: DENY
+referrer-policy: no-referrer
+cache-control: no-store
+x-request-id: req-dbcf1b482986
+
+{"ok":true,"data":{"jobs":[{"job_id":"job-e7b50c4c5ff7","run_id":"corr-run-001","status":"succeeded","message":"completed","error_message":null,"step":"finished","progress":100,"updated_at":"2026-02-19T18:55:25.826477+00:00","execution_mode":"mock","exit_code":null,"correlation":{"request_id":"req-dbcf1b482986","job_id":"job-e7b50c4c5ff7","run_id":"corr-run-001"}},{"job_id":"job-b57653587eea","run_id":"contract-run-001","status":"canceled","message":"cancel accepted","error_message":"사용자 요청으로 작업이 취소되었습니다.","step":"canceled","progress":100,"updated_at":"2026-02-19T18:55:25.827079+00:00","execution_mode":"mock","exit_code":null,"correlation":{"request_id":"req-dbcf1b482986","job_id":"job-b57653587eea","run_id":"contract-run-001"}},{"job_id":"job-528df64314f4","run_id":"corr-run-001","status":"succeeded","message":"completed","error_message":null,"step":"finished","progress":100,"updated_at":"2026-02-19T18:55:25.827574+00:00","execution_mode":"mock","exit_code":null,"correlation":{"request_id":"req-dbcf1b482986","job_id":"job-528df64314f4","run_id":"corr-run-001"}},{"job_id":"job-ea9443646894","run_id":"contract-run-001","status":"canceled","message":"cancel accepted","error_message":"사용자 요청으로 작업이 취소되었습니다.","step":"canceled","progress":100,"updated_at":"2026-02-19T18:55:25.828010+00:00","execution_mode":"mock","exit_code":null,"correlation":{"request_id":"req-dbcf1b482986","job_id":"job-ea9443646894","run_id":"contract-run-001"}},{"job_id":"job-104a8d884658","run_id":"contract-run-001","status":"canceled","message":"cancel accepted","error_message":"사용자 요청으로 작업이 취소되었습니다.","step":"canceled","progress":100,"updated_at":"2026-02-19T18:55:25.828424+00:00","execution_mode":"mock","exit_code":null,"correlation":{"request_id":"req-dbcf1b482986","job_id":"job-104a8d884658","run_id":"contract-run-001"}},{"job_id":"job-f5076a0608ce","run_id":"contract-run-001","status":"canceled","message":"cancel accepted","error_message":"사용자 요청으로 작업이 취소되었습니다.","step":"canceled","progress":100,"updated_at":"2026-02-19T18:55:25.828848+00:00","execution_mode":"mock","exit_code":null,"correlation":{"request_id":"req-dbcf1b482986","job_id":"job-f5076a0608ce","run_id":"contract-run-001"}},{"job_id":"job-9630930588d8","run_id":"contract-run-001","status":"canceled","message":"cancel accepted","error_message":"사용자 요청으로 작업이 취소되었습니다.","step":"canceled","progress":100,"updated_at":"2026-02-19T18:55:25.829317+00:00","execution_mode":"mock","exit_code":null,"correlation":{"request_id":"req-dbcf1b482986","job_id":"job-9630930588d8","run_id":"contract-run-001"}},{"job_id":"job-3441c4c2a650","run_id":"contract-run-001","status":"succeeded","message":"completed","error_message":null,"step":"finished","progress":100,"updated_at":"2026-02-19T18:55:25.829736+00:00","execution_mode":"mock","exit_code":null,"correlation":{"request_id":"req-dbcf1b482986","job_id":"job-3441c4c2a650","run_id":"contract-run-001"}},{"job_id":"job-0268e5c0dd79","run_id":"contract-run-001","status":"canceled","message":"cancel accepted","error_message":"사용자 요청으로 작업이 취소되었습니다.","step":"canceled","progress":100,"updated_at":"2026-02-19T18:55:25.830114+00:00","execution_mode":"mock","exit_code":null,"correlation":{"request_id":"req-dbcf1b482986","job_id":"job-0268e5c0dd79","run_id":"contract-run-001"}},{"job_id":"job-3e2940cd9f38","run_id":"contract-run-001","status":"canceled","message":"cancel accepted","error_message":"사용자 요청으로 작업이 취소되었습니다.","step":"canceled","progress":100,"updated_at":"2026-02-19T18:55:25.830493+00:00","execution_mode":"mock","exit_code":null,"correlation":{"request_id":"req-dbcf1b482986","job_id":"job-3e2940cd9f38","run_id":"contract-run-001"}}],"correlation":{"request_id":"req-dbcf1b482986"}}}

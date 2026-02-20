@@ -1,0 +1,16 @@
+{
+  "run_id": "contract-run-001",
+  "metrics": {
+    "rmse": 0.123,
+    "mae": 0.088,
+    "mape": 4.2
+  },
+  "config": {
+    "model_type": "gru",
+    "feature_mode": "multivariate"
+  },
+  "artifacts": {
+    "metrics_json": "artifacts/metrics/contract-run-001.json",
+    "report_md": "artifacts/reports/contract-run-001.md"
+  }
+}

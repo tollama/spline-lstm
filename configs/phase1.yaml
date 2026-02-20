@@ -1,0 +1,8 @@
+run_id: "20260220_000000_local"
+lookback: 24
+horizon: 1
+smoothing_window: 5
+scaling: "standard"
+timestamp_col: "timestamp"
+target_col: "target"
+covariate_cols: []

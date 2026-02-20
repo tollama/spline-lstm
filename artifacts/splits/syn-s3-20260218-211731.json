@@ -1,0 +1,20 @@
+{
+  "n_total": 96,
+  "train": {
+    "start": 0,
+    "end": 60
+  },
+  "val": {
+    "start": 60,
+    "end": 76
+  },
+  "test": {
+    "start": 76,
+    "end": 96
+  },
+  "ratios": {
+    "test_size": 0.2,
+    "val_size": 0.2
+  },
+  "source": "processed_xy"
+}

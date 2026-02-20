@@ -1,0 +1,87 @@
+{
+  "schema_version": "phase3.runmeta.v1",
+  "run_id": "smoke-phase4-20260220-025518",
+  "created_at": "2026-02-20T02:55:24.424577",
+  "project": "spline-lstm",
+  "git": {
+    "commit": null,
+    "branch": null,
+    "dirty": null,
+    "source": "unavailable"
+  },
+  "runtime": {
+    "python": "3.9.6",
+    "platform": "darwin",
+    "backend": "tensorflow"
+  },
+  "reproducibility": {
+    "seed": {
+      "python": 42,
+      "numpy": 42,
+      "tensorflow": 42
+    },
+    "deterministic": {
+      "enabled": true,
+      "tf_deterministic_ops": true,
+      "shuffle": false
+    },
+    "split_index": {
+      "raw": {
+        "n_total": 156,
+        "train_end": 99,
+        "val_end": 124,
+        "test_start": 124
+      },
+      "sequence": {
+        "n_train_seq": 99,
+        "n_val_seq": 25,
+        "n_test_seq": 32,
+        "lookback": 24,
+        "horizon": 1
+      }
+    }
+  },
+  "config": {
+    "sequence_length": 24,
+    "horizon": 1,
+    "hidden_units": [
+      64,
+      32
+    ],
+    "dropout": 0.2,
+    "learning_rate": 0.001,
+    "epochs": 1,
+    "batch_size": 32,
+    "test_size": 0.2,
+    "val_size": 0.2,
+    "normalize": true,
+    "normalize_method": "minmax",
+    "seed": 42,
+    "deterministic": true,
+    "ma_window": null,
+    "processed_npz": "artifacts/processed/smoke-phase4-20260220-025518/processed.npz",
+    "preprocessor_pkl": "artifacts/models/smoke-phase4-20260220-025518/preprocessor.pkl",
+    "input_npy": null,
+    "synthetic_samples": 800,
+    "synthetic_noise": 0.08,
+    "model_type": "lstm",
+    "feature_mode": "univariate",
+    "target_cols": [
+      "target"
+    ],
+    "dynamic_covariates": [],
+    "static_covariates": [],
+    "covariate_spec": {},
+    "export_formats": [
+      "none"
+    ]
+  },
+  "artifacts": {
+    "best_checkpoint": "artifacts/checkpoints/smoke-phase4-20260220-025518/best.keras",
+    "last_checkpoint": "artifacts/checkpoints/smoke-phase4-20260220-025518/last.keras",
+    "metrics": "artifacts/metrics/smoke-phase4-20260220-025518.json",
+    "report": "artifacts/reports/smoke-phase4-20260220-025518.md"
+  },
+  "status": "success",
+  "error": null
+}

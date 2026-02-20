@@ -1,0 +1,124 @@
+{
+  "run_id": "e2e-20260220-025328",
+  "backend": "tensorflow",
+  "config": {
+    "sequence_length": 24,
+    "horizon": 1,
+    "hidden_units": [
+      64,
+      32
+    ],
+    "dropout": 0.2,
+    "learning_rate": 0.001,
+    "epochs": 1,
+    "batch_size": 32,
+    "test_size": 0.2,
+    "val_size": 0.2,
+    "normalize": true,
+    "normalize_method": "minmax",
+    "seed": 42,
+    "processed_npz": "artifacts/processed/e2e-20260220-025328/processed.npz",
+    "preprocessor_pkl": "artifacts/models/e2e-20260220-025328/preprocessor.pkl",
+    "input_npy": null,
+    "synthetic_samples": 800,
+    "synthetic_noise": 0.08,
+    "model_type": "lstm",
+    "feature_mode": "univariate",
+    "target_cols": [
+      "target"
+    ],
+    "dynamic_covariates": [],
+    "static_covariates": [],
+    "covariate_spec": {},
+    "export_formats": [
+      "none"
+    ]
+  },
+  "metrics": {
+    "mae": 0.7156471014022827,
+    "mse": 0.6264527440071106,
+    "rmse": 0.7914876937866211,
+    "mape": 218.6400604248047,
+    "mase": 5.492166996002197,
+    "r2": 0.11448204517364502
+  },
+  "baselines": {
+    "lstm": {
+      "mae": 0.7156471014022827,
+      "mse": 0.6264527440071106,
+      "rmse": 0.7914876937866211,
+      "mape": 218.6400604248047,
+      "r2": 0.11448204517364502
+    },
+    "naive_last": {
+      "mae": 0.12680870294570923,
+      "mse": 0.02262231707572937,
+      "rmse": 0.15040716528892517,
+      "mape": 80.97968292236328,
+      "r2": 0.9680224061012268
+    },
+    "moving_average_3": {
+      "mae": 0.20794811844825745,
+      "mse": 0.05879576876759529,
+      "rmse": 0.2424783855676651,
+      "mape": 213.13929748535156,
+      "r2": 0.9168896675109863
+    },
+    "relative_improvement_rmse_pct": {
+      "vs_naive_last": -426.23001679687826,
+      "vs_moving_average_3": -226.41576249862288
+    },
+    "evaluation_context": {
+      "split": "test",
+      "scale": "train_fit_only_then_transform",
+      "horizon": 1,
+      "sequence_length": 24
+    }
+  },
+  "checkpoints": {
+    "best": "artifacts/checkpoints/e2e-20260220-025328/best.keras",
+    "last": "artifacts/checkpoints/e2e-20260220-025328/last.keras"
+  },
+  "preprocessor": "artifacts/models/e2e-20260220-025328/preprocessor.pkl",
+  "split_indices": {
+    "n_total": 156,
+    "train": {
+      "start": 0,
+      "end": 99
+    },
+    "val": {
+      "start": 99,
+      "end": 124
+    },
+    "test": {
+      "start": 124,
+      "end": 156
+    },
+    "ratios": {
+      "test_size": 0.2,
+      "val_size": 0.2
+    },
+    "source": "processed_xy"
+  },
+  "inference": {
+    "x_shape": [
+      1,
+      24,
+      1
+    ],
+    "y_true_last": [
+      -0.9124953746795654
+    ],
+    "y_pred_last": [
+      -0.4581110179424286
+    ]
+  },
+  "timestamps": {
+    "start": "2026-02-20T02:53:33.803079",
+    "end": "2026-02-20T02:53:34.748515",
+    "saved_at": "2026-02-20T02:53:34.770071"
+  },
+  "commit_hash": null,
+  "commit_hash_source": "unavailable",
+  "metadata_path": "artifacts/metadata/e2e-20260220-025328.json"
+}

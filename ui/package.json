@@ -1,0 +1,28 @@
+{
+  "name": "spline-lstm-ui",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --mode development",
+    "dev:stage": "vite --mode staging",
+    "build": "tsc -b && vite build --mode production",
+    "build:dev": "tsc -b && vite build --mode development",
+    "build:stage": "tsc -b && vite build --mode staging",
+    "test": "vitest run",
+    "preview": "vite preview",
+    "check:pa": "npm run build && node ./scripts/check-perf-a11y.mjs"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "playwright": "^1.58.2",
+    "typescript": "^5.9.2",
+    "vite": "^5.4.11",
+    "vitest": "^2.1.9"
+  }
+}

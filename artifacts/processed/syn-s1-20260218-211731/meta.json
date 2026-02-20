@@ -1,0 +1,17 @@
+{
+  "run_id": "syn-s1-20260218-211731",
+  "input_path": "data/raw/synthetic/synthetic_S1_n120_seed42.csv",
+  "n_rows": 120,
+  "X_shape": [
+    96,
+    24,
+    1
+  ],
+  "y_shape": [
+    96,
+    1
+  ],
+  "covariate_cols": [],
+  "X_mv_shape": null,
+  "y_mv_shape": null
+}

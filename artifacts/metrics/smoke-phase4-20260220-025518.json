@@ -1,0 +1,163 @@
+{
+  "run_id": "smoke-phase4-20260220-025518",
+  "backend": "tensorflow",
+  "config": {
+    "sequence_length": 24,
+    "horizon": 1,
+    "hidden_units": [
+      64,
+      32
+    ],
+    "dropout": 0.2,
+    "learning_rate": 0.001,
+    "epochs": 1,
+    "batch_size": 32,
+    "test_size": 0.2,
+    "val_size": 0.2,
+    "normalize": true,
+    "normalize_method": "minmax",
+    "seed": 42,
+    "deterministic": true,
+    "ma_window": null,
+    "processed_npz": "artifacts/processed/smoke-phase4-20260220-025518/processed.npz",
+    "preprocessor_pkl": "artifacts/models/smoke-phase4-20260220-025518/preprocessor.pkl",
+    "input_npy": null,
+    "synthetic_samples": 800,
+    "synthetic_noise": 0.08,
+    "model_type": "lstm",
+    "feature_mode": "univariate",
+    "target_cols": [
+      "target"
+    ],
+    "dynamic_covariates": [],
+    "static_covariates": [],
+    "covariate_spec": {},
+    "export_formats": [
+      "none"
+    ]
+  },
+  "metrics": {
+    "mae": 0.7613034844398499,
+    "mse": 0.7013009190559387,
+    "rmse": 0.837437093257904,
+    "mape": 108.9767074584961,
+    "mase": 5.8041768074035645,
+    "r2": -0.019826769828796387
+  },
+  "baselines": {
+    "lstm": {
+      "mae": 0.7613034844398499,
+      "mse": 0.7013009190559387,
+      "rmse": 0.837437093257904,
+      "mape": 108.9767074584961,
+      "r2": -0.019826769828796387
+    },
+    "naive_last": {
+      "mae": 0.13216477632522583,
+      "mse": 0.023107126355171204,
+      "rmse": 0.15201027691364288,
+      "mape": 30.873918533325195,
+      "r2": 0.966397762298584
+    },
+    "moving_average_24": {
+      "window": 24,
+      "mae": 0.9419702887535095,
+      "mse": 1.1455696821212769,
+      "rmse": 1.0703128576278687,
+      "mape": 209.93829345703125,
+      "r2": -0.6658792495727539
+    },
+    "relative_improvement_rmse_pct": {
+      "vs_naive_last": -450.908178821906,
+      "vs_moving_average_24": 21.757728175882487
+    },
+    "metrics": {
+      "model": {
+        "mae": 0.7613034844398499,
+        "mse": 0.7013009190559387,
+        "rmse": 0.837437093257904,
+        "mape": 108.9767074584961,
+        "r2": -0.019826769828796387
+      },
+      "baseline": {
+        "naive": {
+          "mae": 0.13216477632522583,
+          "mse": 0.023107126355171204,
+          "rmse": 0.15201027691364288,
+          "mape": 30.873918533325195,
+          "r2": 0.966397762298584
+        },
+        "ma": {
+          "window": 24,
+          "mae": 0.9419702887535095,
+          "mse": 1.1455696821212769,
+          "rmse": 1.0703128576278687,
+          "mape": 209.93829345703125,
+          "r2": -0.6658792495727539
+        }
+      },
+      "delta_vs_baseline": {
+        "naive": {
+          "rmse_improvement_pct": -450.908178821906
+        },
+        "ma": {
+          "rmse_improvement_pct": 21.757728175882487
+        }
+      }
+    },
+    "evaluation_context": {
+      "split": "test",
+      "scale": "train_fit_only_then_transform",
+      "horizon": 1,
+      "sequence_length": 24
+    }
+  },
+  "checkpoints": {
+    "best": "artifacts/checkpoints/smoke-phase4-20260220-025518/best.keras",
+    "last": "artifacts/checkpoints/smoke-phase4-20260220-025518/last.keras"
+  },
+  "preprocessor": "artifacts/models/smoke-phase4-20260220-025518/preprocessor.pkl",
+  "split_indices": {
+    "n_total": 156,
+    "train": {
+      "start": 0,
+      "end": 99
+    },
+    "val": {
+      "start": 99,
+      "end": 124
+    },
+    "test": {
+      "start": 124,
+      "end": 156
+    },
+    "ratios": {
+      "test_size": 0.2,
+      "val_size": 0.2
+    },
+    "source": "processed_xy"
+  },
+  "inference": {
+    "x_shape": [
+      1,
+      24,
+      1
+    ],
+    "y_true_last": [
+      -1.1291276216506958
+    ],
+    "y_pred_last": [
+      -0.45423436164855957
+    ],
+    "predictions_csv": "artifacts/predictions/smoke-phase4-20260220-025518.csv"
+  },
+  "timestamps": {
+    "start": "2026-02-20T02:55:23.581530",
+    "end": "2026-02-20T02:55:24.394664",
+    "saved_at": "2026-02-20T02:55:24.424646"
+  },
+  "commit_hash": null,
+  "commit_hash_source": "unavailable",
+  "metadata_path": "artifacts/metadata/smoke-phase4-20260220-025518.json",
+  "runmeta_path": "artifacts/runs/smoke-phase4-20260220-025518.meta.json"
+}

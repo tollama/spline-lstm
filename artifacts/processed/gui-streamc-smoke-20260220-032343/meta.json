@@ -1,0 +1,32 @@
+{
+  "run_id": "gui-streamc-smoke-20260220-032343",
+  "input_path": "data/raw/smoke_input.csv",
+  "n_rows": 180,
+  "X_shape": [
+    156,
+    24,
+    1
+  ],
+  "y_shape": [
+    156,
+    1
+  ],
+  "covariate_cols": [],
+  "feature_names": [
+    "target"
+  ],
+  "target_indices": [
+    0
+  ],
+  "X_mv_shape": null,
+  "y_mv_shape": null,
+  "feature_schema": {
+    "enabled": false,
+    "schema_version": null,
+    "dynamic_covariates": [],
+    "static_covariates": [],
+    "required_missing": [],
+    "declared_missing_in_columns": [],
+    "spec": {}
+  }
+}

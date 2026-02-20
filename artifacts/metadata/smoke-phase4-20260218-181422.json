@@ -1,0 +1,38 @@
+{
+  "run_id": "smoke-phase4-20260218-181422",
+  "created_at": "2026-02-18T18:14:27.588743",
+  "cwd": "/Users/ychoi/spline-lstm",
+  "commit_hash": null,
+  "commit_hash_source": "unavailable",
+  "git_commit": null,
+  "seed": {
+    "seed": 42,
+    "pythonhashseed": "42",
+    "python_random": true,
+    "numpy_random": true,
+    "tensorflow_random": true,
+    "tensorflow_op_determinism": true
+  },
+  "config_snapshot": {
+    "sequence_length": 24,
+    "horizon": 1,
+    "hidden_units": [
+      64,
+      32
+    ],
+    "dropout": 0.2,
+    "learning_rate": 0.001,
+    "epochs": 1,
+    "batch_size": 32,
+    "test_size": 0.2,
+    "val_size": 0.2,
+    "normalize": true,
+    "normalize_method": "minmax",
+    "seed": 42,
+    "processed_npz": "artifacts/processed/smoke-phase4-20260218-181422/processed.npz",
+    "preprocessor_pkl": "artifacts/models/smoke-phase4-20260218-181422/preprocessor.pkl",
+    "input_npy": null,
+    "synthetic_samples": 800,
+    "synthetic_noise": 0.08
+  }
+}

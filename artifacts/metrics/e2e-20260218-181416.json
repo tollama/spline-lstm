@@ -1,0 +1,111 @@
+{
+  "run_id": "e2e-20260218-181416",
+  "backend": "tensorflow",
+  "config": {
+    "sequence_length": 24,
+    "horizon": 1,
+    "hidden_units": [
+      64,
+      32
+    ],
+    "dropout": 0.2,
+    "learning_rate": 0.001,
+    "epochs": 1,
+    "batch_size": 32,
+    "test_size": 0.2,
+    "val_size": 0.2,
+    "normalize": true,
+    "normalize_method": "minmax",
+    "seed": 42,
+    "processed_npz": "artifacts/processed/e2e-20260218-181416/processed.npz",
+    "preprocessor_pkl": "artifacts/models/e2e-20260218-181416/preprocessor.pkl",
+    "input_npy": null,
+    "synthetic_samples": 800,
+    "synthetic_noise": 0.08
+  },
+  "metrics": {
+    "mae": 0.11371272802352905,
+    "mse": 0.016830801963806152,
+    "rmse": 0.12973357737064362,
+    "mape": 757.4841918945312,
+    "r2": -3.3864970207214355
+  },
+  "baselines": {
+    "lstm": {
+      "mae": 0.11371272802352905,
+      "mse": 0.016830801963806152,
+      "rmse": 0.12973357737064362,
+      "mape": 757.4841918945312,
+      "r2": -3.3864970207214355
+    },
+    "naive_last": {
+      "mae": 0.0254357997328043,
+      "mse": 0.0009216170874424279,
+      "rmse": 0.030358146876096725,
+      "mape": 100.91654205322266,
+      "r2": 0.7598052024841309
+    },
+    "moving_average_3": {
+      "mae": 0.04155659303069115,
+      "mse": 0.0025990346912294626,
+      "rmse": 0.05098072811961174,
+      "mape": 172.23081970214844,
+      "r2": 0.322631299495697
+    },
+    "relative_improvement_rmse_pct": {
+      "vs_naive_last": -327.34342503115755,
+      "vs_moving_average_3": -154.47569445985815
+    },
+    "evaluation_context": {
+      "split": "test",
+      "scale": "train_fit_only_then_transform",
+      "horizon": 1,
+      "sequence_length": 24
+    }
+  },
+  "checkpoints": {
+    "best": "artifacts/checkpoints/e2e-20260218-181416/best.keras",
+    "last": "artifacts/checkpoints/e2e-20260218-181416/last.keras"
+  },
+  "preprocessor": "artifacts/models/e2e-20260218-181416/preprocessor.pkl",
+  "split_indices": {
+    "n_total": 180,
+    "train": {
+      "start": 0,
+      "end": 115
+    },
+    "val": {
+      "start": 115,
+      "end": 144
+    },
+    "test": {
+      "start": 144,
+      "end": 180
+    },
+    "ratios": {
+      "test_size": 0.2,
+      "val_size": 0.2
+    }
+  },
+  "inference": {
+    "x_shape": [
+      1,
+      24,
+      1
+    ],
+    "y_true_last": [
+      0.19726601243019104
+    ],
+    "y_pred_last": [
+      0.09252464026212692
+    ]
+  },
+  "timestamps": {
+    "start": "2026-02-18T18:14:20.784309",
+    "end": "2026-02-18T18:14:21.642925",
+    "saved_at": "2026-02-18T18:14:21.737149"
+  },
+  "commit_hash": null,
+  "commit_hash_source": "unavailable",
+  "metadata_path": "artifacts/metadata/e2e-20260218-181416.json"
+}

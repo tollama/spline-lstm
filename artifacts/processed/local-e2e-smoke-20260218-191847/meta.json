@@ -1,0 +1,17 @@
+{
+  "run_id": "local-e2e-smoke-20260218-191847",
+  "input_path": "data/raw/smoke_input.csv",
+  "n_rows": 180,
+  "X_shape": [
+    156,
+    24,
+    1
+  ],
+  "y_shape": [
+    156,
+    1
+  ],
+  "covariate_cols": [],
+  "X_mv_shape": null,
+  "y_mv_shape": null
+}

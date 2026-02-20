@@ -1,0 +1,111 @@
+{
+  "run_id": "phase4-smoke-proof",
+  "backend": "tensorflow",
+  "config": {
+    "sequence_length": 24,
+    "horizon": 1,
+    "hidden_units": [
+      64,
+      32
+    ],
+    "dropout": 0.2,
+    "learning_rate": 0.001,
+    "epochs": 1,
+    "batch_size": 32,
+    "test_size": 0.2,
+    "val_size": 0.2,
+    "normalize": true,
+    "normalize_method": "minmax",
+    "seed": 42,
+    "processed_npz": "artifacts/processed/phase4-smoke-proof/processed.npz",
+    "preprocessor_pkl": "artifacts/models/phase4-smoke-proof/preprocessor.pkl",
+    "input_npy": null,
+    "synthetic_samples": 800,
+    "synthetic_noise": 0.08
+  },
+  "metrics": {
+    "mae": 0.07751729339361191,
+    "mse": 0.007896018214523792,
+    "rmse": 0.08885954320430756,
+    "mape": 114.82440185546875,
+    "r2": -6.619345188140869
+  },
+  "baselines": {
+    "lstm": {
+      "mae": 0.07751729339361191,
+      "mse": 0.007896018214523792,
+      "rmse": 0.08885954320430756,
+      "mape": 114.82440185546875,
+      "r2": -6.619345188140869
+    },
+    "naive_last": {
+      "mae": 0.029893502593040466,
+      "mse": 0.0011406323174014688,
+      "rmse": 0.03377324715256691,
+      "mape": 35.7906494140625,
+      "r2": -0.10066509246826172
+    },
+    "moving_average_3": {
+      "mae": 0.03114362619817257,
+      "mse": 0.0014609526842832565,
+      "rmse": 0.038222409784793854,
+      "mape": 37.616546630859375,
+      "r2": -0.40976154804229736
+    },
+    "relative_improvement_rmse_pct": {
+      "vs_naive_last": -163.10625831229265,
+      "vs_moving_average_3": -132.48018755646348
+    },
+    "evaluation_context": {
+      "split": "test",
+      "scale": "train_fit_only_then_transform",
+      "horizon": 1,
+      "sequence_length": 24
+    }
+  },
+  "checkpoints": {
+    "best": "artifacts/checkpoints/phase4-smoke-proof/best.keras",
+    "last": "artifacts/checkpoints/phase4-smoke-proof/last.keras"
+  },
+  "preprocessor": "artifacts/models/phase4-smoke-proof/preprocessor.pkl",
+  "split_indices": {
+    "n_total": 180,
+    "train": {
+      "start": 0,
+      "end": 115
+    },
+    "val": {
+      "start": 115,
+      "end": 144
+    },
+    "test": {
+      "start": 144,
+      "end": 180
+    },
+    "ratios": {
+      "test_size": 0.2,
+      "val_size": 0.2
+    }
+  },
+  "inference": {
+    "x_shape": [
+      1,
+      24,
+      1
+    ],
+    "y_true_last": [
+      0.13222353160381317
+    ],
+    "y_pred_last": [
+      0.10204919427633286
+    ]
+  },
+  "timestamps": {
+    "start": "2026-02-18T17:53:51.896481",
+    "end": "2026-02-18T17:53:52.705502",
+    "saved_at": "2026-02-18T17:53:52.791824"
+  },
+  "commit_hash": null,
+  "commit_hash_source": "unavailable",
+  "metadata_path": "artifacts/metadata/phase4-smoke-proof.json"
+}

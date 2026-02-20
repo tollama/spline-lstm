@@ -1,0 +1,111 @@
+{
+  "run_id": "phase4-review-b",
+  "backend": "tensorflow",
+  "config": {
+    "sequence_length": 24,
+    "horizon": 1,
+    "hidden_units": [
+      64,
+      32
+    ],
+    "dropout": 0.2,
+    "learning_rate": 0.003,
+    "epochs": 5,
+    "batch_size": 16,
+    "test_size": 0.2,
+    "val_size": 0.2,
+    "normalize": true,
+    "normalize_method": "minmax",
+    "seed": 123,
+    "processed_npz": null,
+    "preprocessor_pkl": null,
+    "input_npy": null,
+    "synthetic_samples": 360,
+    "synthetic_noise": 0.06
+  },
+  "metrics": {
+    "mae": 0.09879455715417862,
+    "mse": 0.01326874177902937,
+    "rmse": 0.11519002169370651,
+    "mape": 83.18621826171875,
+    "r2": 0.8142521381378174
+  },
+  "baselines": {
+    "lstm": {
+      "mae": 0.09879455715417862,
+      "mse": 0.01326874177902937,
+      "rmse": 0.11519002169370651,
+      "mape": 83.18621826171875,
+      "r2": 0.8142521381378174
+    },
+    "naive_last": {
+      "mae": 0.06850909441709518,
+      "mse": 0.007017742842435837,
+      "rmse": 0.0837719663977623,
+      "mape": 40.58243179321289,
+      "r2": 0.9017592668533325
+    },
+    "moving_average_3": {
+      "mae": 0.1214209720492363,
+      "mse": 0.020988188683986664,
+      "rmse": 0.1448730081319809,
+      "mape": 70.4581527709961,
+      "r2": 0.7061883211135864
+    },
+    "relative_improvement_rmse_pct": {
+      "vs_naive_last": -37.504254581229446,
+      "vs_moving_average_3": 20.48896807770848
+    },
+    "evaluation_context": {
+      "split": "test",
+      "scale": "train_fit_only_then_transform",
+      "horizon": 1,
+      "sequence_length": 24
+    }
+  },
+  "checkpoints": {
+    "best": "checkpoints/phase4-review-b/best.keras",
+    "last": "checkpoints/phase4-review-b/last.keras"
+  },
+  "preprocessor": null,
+  "split_indices": {
+    "n_total": 360,
+    "train": {
+      "start": 0,
+      "end": 230
+    },
+    "val": {
+      "start": 230,
+      "end": 288
+    },
+    "test": {
+      "start": 288,
+      "end": 360
+    },
+    "ratios": {
+      "test_size": 0.2,
+      "val_size": 0.2
+    }
+  },
+  "inference": {
+    "x_shape": [
+      1,
+      24,
+      1
+    ],
+    "y_true_last": [
+      0.5358427166938782
+    ],
+    "y_pred_last": [
+      0.41161075234413147
+    ]
+  },
+  "timestamps": {
+    "start": "2026-02-18T17:52:55.637830",
+    "end": "2026-02-18T17:52:56.789863",
+    "saved_at": "2026-02-18T17:52:56.830019"
+  },
+  "commit_hash": null,
+  "commit_hash_source": "unavailable",
+  "metadata_path": "artifacts/metadata/phase4-review-b.json"
+}
