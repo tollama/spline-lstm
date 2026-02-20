@@ -20,6 +20,18 @@ cat <<'JSON' | curl -fsS -X POST "$BASE_URL/api/v1/forecast/validate-inputs" -H 
 JSON
 
 curl -fsS "$BASE_URL/api/v1/mcp/capabilities" >/dev/null
+cat <<'JSON' | curl -fsS -X POST "$BASE_URL/api/v1/covariates/validate" -H 'content-type: application/json' --data-binary @- >/dev/null
+{
+  "covariate_schema": [
+    {"name": "promo", "type": "numeric", "required": true},
+    {"name": "store", "type": "categorical", "required": true}
+  ],
+  "payload": {"covariates": {"promo": 1, "store": "A"}},
+  "strict_order": true
+}
+JSON
+
+curl -fsS "$BASE_URL/api/v1/pilot/readiness" >/dev/null
 curl -fsS "$BASE_URL/api/tags" >/dev/null
 
 echo "phase6_quickcheck: ok"

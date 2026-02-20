@@ -58,6 +58,26 @@ def test_phase6_agent_tool_and_tollama_endpoints() -> None:
     assert invoke.status_code == 200
     assert invoke.json()["data"]["accepted"] is True
 
+    idem = client.post(
+        "/api/v1/agent/tools:invoke",
+        json={"tool": "run_inference", "arguments": {"run_id": "r2"}},
+        headers={"x-idempotency-key": "idem-001"},
+    )
+    assert idem.status_code == 200
+    idem2 = client.post(
+        "/api/v1/agent/tools:invoke",
+        json={"tool": "run_inference", "arguments": {"run_id": "different"}},
+        headers={"x-idempotency-key": "idem-001"},
+    )
+    assert idem2.status_code == 200
+    assert idem2.json() == idem.json()
+
+    mcp = client.get("/api/v1/mcp/capabilities")
+    assert mcp.status_code == 200
+    assert mcp.json()["data"]["server"] == "spline-forecast-mcp"
+    tool_names = {x["name"] for x in mcp.json()["data"]["tools"]}
+    assert "list_artifacts" in tool_names
+    assert "compare_runs" in tool_names
     mcp = client.get("/api/v1/mcp/capabilities")
     assert mcp.status_code == 200
     assert mcp.json()["data"]["server"] == "spline-forecast-mcp"
@@ -98,3 +118,35 @@ def test_phase6_execute_adjusted_and_streaming_contract() -> None:
     assert "application/x-ndjson" in stream_generate.headers.get("content-type", "")
     chunks = [line for line in stream_generate.text.splitlines() if line.strip()]
     assert len(chunks) >= 2
+
+
+def test_phase6_covariate_contract_and_readiness() -> None:
+    payload = {
+        "covariate_schema": [
+            {"name": "promo", "type": "numeric", "required": True, "known_future": True},
+            {"name": "store", "type": "categorical", "required": True, "known_future": False},
+        ],
+        "payload": {"covariates": {"promo": 1.0, "store": "A"}},
+        "strict_order": True,
+    }
+    ok = client.post("/api/v1/covariates/validate", json=payload)
+    assert ok.status_code == 200
+    assert ok.json()["data"]["valid"] is True
+
+    bad_payload = {
+        "covariate_schema": payload["covariate_schema"],
+        "payload": {"covariates": {"store": "A", "promo": "oops", "extra": 1}},
+        "strict_order": True,
+    }
+    bad = client.post("/api/v1/covariates/validate", json=bad_payload)
+    assert bad.status_code == 200
+    b = bad.json()["data"]
+    assert b["valid"] is False
+    assert "extra" in b["extras"]
+    assert "promo" in b["type_violations"]
+
+    readiness = client.get("/api/v1/pilot/readiness")
+    assert readiness.status_code == 200
+    body = readiness.json()["data"]
+    assert "rollout_stage" in body
+    assert "kill_switches" in body

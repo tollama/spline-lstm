@@ -81,6 +81,17 @@ def _security_config() -> Dict[str, Any]:
 
 SECURITY = _security_config()
 
+PHASE6_FLAGS = {
+    "enable_adjusted_execute": _env_flag("SPLINE_PHASE6_ENABLE_ADJUSTED_EXECUTE", True),
+    "enable_tollama_adapter": _env_flag("SPLINE_PHASE6_ENABLE_TOLLAMA_ADAPTER", True),
+    "enable_mcp": _env_flag("SPLINE_PHASE6_ENABLE_MCP", True),
+}
+
+_IDEMPOTENCY_LOCK = threading.Lock()
+_IDEMPOTENCY_CACHE: Dict[str, Dict[str, Any]] = {}
+_RATE_LOCK = threading.Lock()
+_RATE_BUCKETS: Dict[str, List[float]] = {}
+
 _REQUEST_ID: contextvars.ContextVar[str] = contextvars.ContextVar("request_id", default="")
 
 
@@ -118,6 +129,26 @@ def _atomic_write_text(path: Path, text: str) -> None:
 
 def _sanitize_line(raw: str) -> str:
     return raw.rstrip("\r\n")[:2000]
+
+
+def _rate_limit_or_raise(key: str, limit: int = 30, window_sec: int = 60) -> None:
+    now = time.time()
+    with _RATE_LOCK:
+        bucket = [ts for ts in _RATE_BUCKETS.get(key, []) if now - ts < window_sec]
+        if len(bucket) >= limit:
+            raise HTTPException(status_code=429, detail="rate limit exceeded")
+        bucket.append(now)
+        _RATE_BUCKETS[key] = bucket
+
+
+def _idempotency_get(key: str) -> Optional[Dict[str, Any]]:
+    with _IDEMPOTENCY_LOCK:
+        return copy.deepcopy(_IDEMPOTENCY_CACHE.get(key))
+
+
+def _idempotency_put(key: str, value: Dict[str, Any]) -> None:
+    with _IDEMPOTENCY_LOCK:
+        _IDEMPOTENCY_CACHE[key] = copy.deepcopy(value)
 
 
 @dataclass
@@ -512,6 +543,20 @@ class ForecastExecuteAdjustedRequest(ForecastInputRequest):
     feature_mode: Optional[str] = "multivariate"
 
 
+class CovariateFieldSpec(BaseModel):
+    name: str
+    type: str = Field(pattern="^(numeric|categorical|boolean)$")
+    required: bool = True
+    known_future: bool = False
+    source: Optional[str] = None
+
+
+class CovariateContractValidateRequest(BaseModel):
+    covariate_schema: List[CovariateFieldSpec]
+    payload: Dict[str, Any]
+    strict_order: bool = True
+
+
 @app.get(f"{API_PREFIX}/health")
 def health() -> Dict[str, Any]:
     writable = False
@@ -845,9 +890,51 @@ def _append_adjustment_audit(event: Dict[str, Any]) -> None:
 def _apply_input_patches(base_inputs: Dict[str, Any], patches: List[InputPatchOperation]) -> Dict[str, Any]:
     candidate = copy.deepcopy(base_inputs)
     for patch in patches:
+        if patch.path.startswith("/target_history") and not patch.reason:
+            raise ValueError("target_history patch requires reason")
         _set_nested_value(candidate, patch.path, patch.value)
     _validate_forecast_inputs(candidate)
     return candidate
+
+
+def _validate_covariate_contract(
+    schema: List[CovariateFieldSpec], payload: Dict[str, Any], strict_order: bool = True
+) -> Dict[str, Any]:
+    if "covariates" not in payload or not isinstance(payload.get("covariates"), dict):
+        raise ValueError("payload.covariates must be an object")
+    covariates: Dict[str, Any] = payload["covariates"]
+
+    expected = [item.name for item in schema]
+    required = {item.name for item in schema if item.required}
+
+    missing = sorted([name for name in required if name not in covariates])
+    extras = sorted([name for name in covariates.keys() if name not in expected])
+
+    order_ok = True
+    if strict_order:
+        order_ok = list(covariates.keys()) == expected
+
+    type_violations: List[str] = []
+    type_map = {item.name: item.type for item in schema}
+    for name, value in covariates.items():
+        dtype = type_map.get(name)
+        if dtype is None:
+            continue
+        if dtype == "numeric" and not isinstance(value, (int, float)):
+            type_violations.append(name)
+        if dtype == "boolean" and not isinstance(value, bool):
+            type_violations.append(name)
+        if dtype == "categorical" and not isinstance(value, str):
+            type_violations.append(name)
+
+    return {
+        "valid": not missing and not extras and order_ok and not type_violations,
+        "missing": missing,
+        "extras": extras,
+        "order_ok": order_ok,
+        "type_violations": sorted(type_violations),
+        "schema_hash": _payload_hash({"schema": [item.model_dump() for item in schema]}),
+    }
 
 
 def _store_adjusted_inputs(run_id: str, payload: Dict[str, Any]) -> str:
@@ -923,6 +1010,9 @@ def preview_forecast(payload: ForecastInputRequest, request: Request) -> Dict[st
 
 @app.post(f"{API_PREFIX}/forecast/execute-adjusted")
 def execute_adjusted_forecast(payload: ForecastExecuteAdjustedRequest, request: Request) -> Dict[str, Any]:
+    if not PHASE6_FLAGS["enable_adjusted_execute"]:
+        raise HTTPException(status_code=503, detail="adjusted execution disabled")
+
     base = json.loads(json.dumps(payload.base_inputs, ensure_ascii=False))
     before_hash = _payload_hash(base)
     try:
@@ -972,6 +1062,15 @@ def execute_adjusted_forecast(payload: ForecastExecuteAdjustedRequest, request: 
     }
 
 
+@app.post(f"{API_PREFIX}/covariates/validate")
+def validate_covariate_contract(payload: CovariateContractValidateRequest, request: Request) -> Dict[str, Any]:
+    try:
+        result = _validate_covariate_contract(payload.covariate_schema, payload.payload, strict_order=payload.strict_order)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"ok": True, "data": {**result, "correlation": _corr(request)}}
+
+
 @app.get(f"{API_PREFIX}/agent/tools")
 def list_agent_tools(request: Request) -> Dict[str, Any]:
     tools = [
@@ -985,6 +1084,17 @@ def list_agent_tools(request: Request) -> Dict[str, Any]:
 
 @app.post(f"{API_PREFIX}/agent/tools:invoke")
 def invoke_agent_tool(payload: AgentToolInvokeRequest, request: Request) -> Dict[str, Any]:
+    _rate_limit_or_raise(key=f"agent:{request.client.host if request.client else 'local'}", limit=60, window_sec=60)
+    idem_key = request.headers.get("x-idempotency-key")
+    if idem_key:
+        cached = _idempotency_get(f"agent:{idem_key}")
+        if cached:
+            return cached
+
+    supported = {"run_preprocessing", "run_training", "run_inference", "get_run_status"}
+    if payload.tool not in supported:
+        raise HTTPException(status_code=400, detail="unsupported tool")
+    response = {
     supported = {"run_preprocessing", "run_training", "run_inference", "get_run_status"}
     if payload.tool not in supported:
         raise HTTPException(status_code=400, detail="unsupported tool")
@@ -1000,10 +1110,15 @@ def invoke_agent_tool(payload: AgentToolInvokeRequest, request: Request) -> Dict
             "correlation": _corr(request),
         },
     }
+    if idem_key:
+        _idempotency_put(f"agent:{idem_key}", response)
+    return response
 
 
 @app.get(f"{API_PREFIX}/mcp/capabilities")
 def mcp_capabilities(request: Request) -> Dict[str, Any]:
+    if not PHASE6_FLAGS["enable_mcp"]:
+        raise HTTPException(status_code=503, detail="mcp disabled")
     return {
         "ok": True,
         "data": {
@@ -1014,7 +1129,31 @@ def mcp_capabilities(request: Request) -> Dict[str, Any]:
                 {"name": "run_training", "input_schema": {"type": "object", "properties": {"run_id": {"type": "string"}}}},
                 {"name": "run_inference", "input_schema": {"type": "object", "properties": {"run_id": {"type": "string"}}}},
                 {"name": "get_run_status", "input_schema": {"type": "object", "properties": {"job_id": {"type": "string"}}}},
+                {"name": "list_artifacts", "input_schema": {"type": "object", "properties": {"run_id": {"type": "string"}}}},
+                {"name": "compare_runs", "input_schema": {"type": "object", "properties": {"base_run_id": {"type": "string"}, "candidate_run_id": {"type": "string"}}}},
             ],
+            "correlation": _corr(request),
+        },
+    }
+
+
+@app.get(f"{API_PREFIX}/pilot/readiness")
+def pilot_readiness(request: Request) -> Dict[str, Any]:
+    recent = store.list_recent(limit=20)
+    total = len(recent)
+    failures = len([x for x in recent if x.status in {"failed", "canceled"}])
+    success = len([x for x in recent if x.status in {"succeeded", "success"}])
+    rate = (failures / total) if total else 0.0
+    stage = "shadow" if total < 5 else ("canary" if rate < 0.2 else "hold")
+    return {
+        "ok": True,
+        "data": {
+            "rollout_stage": stage,
+            "recent_total": total,
+            "recent_success": success,
+            "recent_failures": failures,
+            "failure_rate": round(rate, 4),
+            "kill_switches": PHASE6_FLAGS,
             "correlation": _corr(request),
         },
     }
@@ -1050,6 +1189,9 @@ def tollama_tags() -> Dict[str, Any]:
 
 @app.post("/api/generate")
 def tollama_generate(payload: TollamaGenerateRequest):
+    if not PHASE6_FLAGS["enable_tollama_adapter"]:
+        raise HTTPException(status_code=503, detail="tollama adapter disabled")
+    _rate_limit_or_raise(key="tollama:generate", limit=120, window_sec=60)
     response_text = (
         "[spline-lstm] Forecast assistant ready. "
         "Use /api/v1/forecast/preview for adjusted covariate what-if simulation. "
@@ -1071,6 +1213,9 @@ def tollama_generate(payload: TollamaGenerateRequest):
 
 @app.post("/api/chat")
 def tollama_chat(payload: TollamaChatRequest):
+    if not PHASE6_FLAGS["enable_tollama_adapter"]:
+        raise HTTPException(status_code=503, detail="tollama adapter disabled")
+    _rate_limit_or_raise(key="tollama:chat", limit=120, window_sec=60)
     user_messages = [m.get("content", "") for m in payload.messages if m.get("role") == "user"]
     last_user = user_messages[-1] if user_messages else ""
     final = {
