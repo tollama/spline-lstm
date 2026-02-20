@@ -53,6 +53,19 @@ spline-lstm/
 
 For day-2 operator commands, see [`OPERATIONS_QUICKSTART.md`](OPERATIONS_QUICKSTART.md).
 For detailed failure handling, run_id policy, and backend security defaults, see [`docs/RUNBOOK.md`](docs/RUNBOOK.md).
+For the Phase 6 expansion roadmap (covariates, user-adjustable inputs, MCP/Skill, Tollama-compatible API, pilot stability), see [`docs/PHASE6_AGENT_ECOSYSTEM_PLAN.md`](docs/PHASE6_AGENT_ECOSYSTEM_PLAN.md).
+
+### Phase 6 Backend Preview Endpoints (MVP)
+
+- User-adjusted forecast input validation: `POST /api/v1/forecast/validate-inputs`
+- User-adjusted forecast preview: `POST /api/v1/forecast/preview`
+- User-adjusted forecast execute: `POST /api/v1/forecast/execute-adjusted`
+- Covariate contract validator: `POST /api/v1/covariates/validate`
+- Agent tool registry/invoke: `GET /api/v1/agent/tools`, `POST /api/v1/agent/tools:invoke`
+- MCP capability descriptor: `GET /api/v1/mcp/capabilities`
+- Pilot readiness endpoint (rollout + kill-switch view): `GET /api/v1/pilot/readiness`
+- Tollama-compatible adapter endpoints: `GET /api/tags`, `POST /api/generate`, `POST /api/chat`
+- Reusable local skill package for agents: `skills/forecast-ops/SKILL.md`
 
 ```bash
 # install deps
