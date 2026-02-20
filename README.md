@@ -53,6 +53,7 @@ spline-lstm/
 
 For day-2 operator commands, see [`OPERATIONS_QUICKSTART.md`](OPERATIONS_QUICKSTART.md).
 For detailed failure handling, run_id policy, and backend security defaults, see [`docs/RUNBOOK.md`](docs/RUNBOOK.md).
+For the Phase 6 expansion roadmap (covariates, user-adjustable inputs, MCP/Skill, Tollama-compatible API, pilot stability), see [`docs/PHASE6_AGENT_ECOSYSTEM_PLAN.md`](docs/PHASE6_AGENT_ECOSYSTEM_PLAN.md).
 
 ```bash
 # install deps
