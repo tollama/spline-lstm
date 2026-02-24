@@ -1,11 +1,11 @@
-# RELEASE NOTES — Sprint Day 5 (Final Regression + Release Candidate)
+# RELEASE NOTES — v0.1.0 (Initial Public OSS Release)
 
-Date: 2026-02-20 (KST)
+Date: 2026-02-25 (KST)
 Project: `spline-lstm`
-Release type: Sprint closure candidate (Phase 1~5 integrated)
+Release type: Initial OSS Release (v0.1.0)
 
 ## Summary
-This sprint closes the end-to-end baseline and Phase 5 extension path with final regression re-validation.
+This release marks the initial public open-source version of **spline-lstm**, integrating the end-to-end baseline, Phase 5 extension paths, and the newly completed Phase 6 capabilities (LSTM refactor, Covariates, Cross-Validation). Furthermore, the repository has been cleaned up and packaged with OSS essentials.
 
 - Core pipeline remains stable: preprocessing → runner train/eval/infer → artifact persistence
 - Ops gates remain stable: one-click E2E + smoke validation + run_id mismatch guard
@@ -15,18 +15,21 @@ This sprint closes the end-to-end baseline and Phase 5 extension path with final
   - runner contract alignment for phase5-related options
 
 ## What changed (high level)
-1. **Phase 4 operational hardening finalized**
+1. **Phase 6 capabilities & OSS Essentials (New)**
+   - Unification of the LSTM/GRU stack (removed PyTorch fallback, strict TensorFlow backend).
+   - Covariate (static and future) support with multi-input modeling architecture.
+   - Complete `.gitignore`, MIT `LICENSE`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`.
+   - Installable via `pyproject.toml` and verified by GitHub Actions CI.
+
+2. **Phase 4 operational hardening finalized**
    - `scripts/run_e2e.sh` and `scripts/smoke_test.sh` used as deployment gates
    - smoke validation report generation (`*_smoke_validation.md`)
    - run_id consistency guard enforced in runner/artifact paths
 
-2. **Phase 5 PoC extension finalized**
+3. **Phase 5 PoC extension finalized**
    - model variant path expanded (LSTM/GRU/Attention-LSTM contracts)
    - comparison runner flow produces JSON/Markdown benchmark artifacts
    - multivariate preprocessing contract keys and metadata support added
-
-3. **Documentation closure and gate evidence updated**
-   - final gate/closure docs indicate full project completion status in latest closeout path
 
 ## Final regression & smoke evidence (Day 5)
 ### A) Full regression suite
@@ -93,10 +96,11 @@ If post-release regression is detected:
 - One-command verifier: `bash scripts/pre_release_verify.sh`
 
 ## Release recommendation
-**GO (Release Candidate acceptable)**
+**GO (v0.1.0 Ready for Public Release)**
 
 Rationale:
 - Full regression suite green
 - Core smoke gate green
 - Phase 5 compare smoke green
-- No blocking defects identified in Day 5 execution
+- Phase 6 refactors green
+- Repository cleaned, lint validation configured, and Github Actions CI integrated.
