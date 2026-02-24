@@ -109,6 +109,7 @@ The project focuses on iterative phase-based delivery. Currently, **Phases 1 thr
 For production deployments, day-2 operations, and specific feature details, please refer to the following documentation:
 
 - **Quick Operator Commands:** [`OPERATIONS_QUICKSTART.md`](OPERATIONS_QUICKSTART.md)
+- **Architecture & Technology Overview:** [`docs/architecture.md`](docs/architecture.md)
 - **Detailed Runbook (Failure Handling, Security):** [`docs/RUNBOOK.md`](docs/RUNBOOK.md)
 - **GUI Production Cutover:** [`docs/GUI_PROD_CUTOVER_CHECKLIST.md`](docs/GUI_PROD_CUTOVER_CHECKLIST.md)
 - **Phase 6 Details & Agent Ecosystem:** [`docs/PHASE6_AGENT_ECOSYSTEM_PLAN.md`](docs/PHASE6_AGENT_ECOSYSTEM_PLAN.md)
