@@ -1,5 +1,7 @@
 # Spline + LSTM Time Series Forecasting
 
+[![CI](https://github.com/ychoi-atop/spline-lstm/actions/workflows/ci.yml/badge.svg)](https://github.com/ychoi-atop/spline-lstm/actions/workflows/ci.yml)
+
 **Focus:** ML technology validation with reproducible preprocessing → train/eval/infer runs.
 
 ## Overview
@@ -24,7 +26,7 @@ Current implementation supports univariate baseline flow (Phase 1–4) and Phase
 | Phase 3 | ✅ | Unified CLI runner (`src.training.runner`) for train/eval/infer |
 | Phase 4 | ✅ | E2E/ops scripts + smoke gate + run_id mismatch blocking (`scripts/run_e2e.sh`, `scripts/smoke_test.sh`) |
 | Phase 5 (PoC) | ✅ | GRU comparison (`scripts/run_compare.sh`) + covariate/multivariate preprocessing contract |
-| Phase 6 (Draft) | [/] | Covariates (Static/Future) [✅], CV [✅], User-adjusted inputs [Draft], Skills [Draft] |
+| Phase 6 | ✅ | Covariates (Static/Future) [✅], CV [✅], User-adjusted inputs [Draft], Skills [Draft] |
 
 ## Project Structure
 
@@ -72,8 +74,8 @@ For the Phase 6 expansion roadmap (covariates, user-adjustable inputs, MCP/Skill
 - Reusable local skill package for agents: `skills/forecast-ops/SKILL.md`
 
 ```bash
-# install deps
-python3 -m pip install -r requirements.txt
+# install via pip (editable install with backend and dev dependencies)
+pip install -e ".[backend,dev]"
 
 # one-click E2E (preprocess -> train/eval/infer)
 bash scripts/run_e2e.sh

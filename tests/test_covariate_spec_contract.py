@@ -7,7 +7,6 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import pytest
-
 from src.covariates.spec import enforce_covariate_spec, validate_covariate_spec_payload
 from src.preprocessing.pipeline import PreprocessingConfig, run_preprocessing_pipeline
 
@@ -40,7 +39,7 @@ def test_validate_covariate_spec_payload_rejects_invalid_field_types():
     payload = {
         "dynamic_covariates": [{"name": "temp", "type": "float", "required": "yes"}],
     }
-    with pytest.raises(ValueError, match="dynamic_covariates\[0\]\.type"):
+    with pytest.raises(ValueError, match=r"dynamic_covariates\[0\]\.type"):
         validate_covariate_spec_payload(payload)
 
 

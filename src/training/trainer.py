@@ -1,12 +1,17 @@
 """Training pipeline for time series models."""
 
-import numpy as np
-from typing import Optional, Tuple, Dict, Any, Callable
-import logging
-from datetime import datetime
+from __future__ import annotations
+
 import json
+import logging
 import os
+from collections.abc import Callable
+from datetime import datetime
 from pathlib import Path
+from typing import Any
+
+import numpy as np
+
 from src.utils.run_id import validate_run_id
 
 logger = logging.getLogger(__name__)
@@ -23,27 +28,20 @@ class Trainer:
             raise ValueError(f"val_size must be in (0, 1), got {val_size}")
 
     def __init__(
-        self,
-        model: Any,
-        sequence_length: int = 24,
-        prediction_horizon: int = 1,
-        save_dir: str = "./checkpoints"
+        self, model: Any, sequence_length: int = 24, prediction_horizon: int = 1, save_dir: str = "./checkpoints"
     ):
         self.model = model
         self.sequence_length = sequence_length
         self.prediction_horizon = prediction_horizon
         self.save_dir = save_dir
-        self.metrics = {}
-        self.split_indices = {}
+        self.metrics: dict[str, float] = {}
+        self.split_indices: dict[str, Any] = {}
 
         os.makedirs(save_dir, exist_ok=True)
 
     def create_sequences(
-        self,
-        data: np.ndarray,
-        sequence_length: Optional[int] = None,
-        horizon: Optional[int] = None
-    ) -> Tuple[np.ndarray, np.ndarray]:
+        self, data: np.ndarray, sequence_length: int | None = None, horizon: int | None = None
+    ) -> tuple[np.ndarray, np.ndarray]:
         """Create sequences for training.
 
         Returns:
@@ -61,24 +59,22 @@ class Trainer:
         if data.ndim != 2:
             raise ValueError(f"data must be 1D or 2D array, got shape={data.shape}")
 
-        X, y = [], []
+        X_list: list[np.ndarray] = []
+        y_list: list[np.ndarray] = []
 
         for i in range(len(data) - seq_len - pred_horizon + 1):
-            X.append(data[i:i + seq_len])
-            y.append(data[i + seq_len:i + seq_len + pred_horizon])
+            X_list.append(data[i : i + seq_len])
+            y_list.append(data[i + seq_len : i + seq_len + pred_horizon])
 
-        X = np.array(X)
-        y = np.array(y).reshape(-1, pred_horizon * data.shape[1])
+        X = np.asarray(X_list, dtype=float)
+        y = np.asarray(y_list, dtype=float).reshape(-1, pred_horizon * data.shape[1])
 
         logger.info(f"Created {len(X)} sequences")
         return X, y
 
     def train_test_split(
-        self,
-        X: Any,
-        y: np.ndarray,
-        test_size: float = 0.2
-    ) -> Tuple[Any, Any, np.ndarray, np.ndarray]:
+        self, X: Any, y: np.ndarray, test_size: float = 0.2
+    ) -> tuple[Any, Any, np.ndarray, np.ndarray]:
         """Split data into train and test sets (chronological)."""
         n_samples = len(y)
         split_idx = int(n_samples * (1 - test_size))
@@ -88,18 +84,15 @@ class Trainer:
             X_test = [x[split_idx:] for x in X]
         else:
             X_train, X_test = X[:split_idx], X[split_idx:]
-            
+
         y_train, y_test = y[:split_idx], y[split_idx:]
 
         logger.info(f"Train: {len(y_train)}, Test: {len(y_test)}")
         return X_train, X_test, y_train, y_test
 
     def split_series(
-        self,
-        data: np.ndarray,
-        test_size: float = 0.2,
-        val_size: float = 0.2
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        self, data: np.ndarray, test_size: float = 0.2, val_size: float = 0.2
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Split raw series into train/val/test chronologically."""
         self._validate_split_params(test_size=test_size, val_size=val_size)
 
@@ -123,47 +116,39 @@ class Trainer:
         logger.info("Raw split sizes - train: %d, val: %d, test: %d", len(train), len(val), len(test))
         return train, val, test
 
-    def fit_normalizer(
-        self,
-        data: np.ndarray,
-        method: str = 'minmax'
-    ) -> Dict:
+    def fit_normalizer(self, data: np.ndarray, method: str = "minmax") -> dict[str, float | str]:
         """Fit normalization parameters on training split only."""
-        if method == 'minmax':
-            min_val = np.min(data)
-            max_val = np.max(data)
-            return {'method': 'minmax', 'min': min_val, 'max': max_val}
+        if method == "minmax":
+            min_val = float(np.min(data))
+            max_val = float(np.max(data))
+            return {"method": "minmax", "min": min_val, "max": max_val}
         else:  # standard
-            mean_val = np.mean(data)
-            std_val = np.std(data)
-            return {'method': 'standard', 'mean': mean_val, 'std': std_val}
+            mean_val = float(np.mean(data))
+            std_val = float(np.std(data))
+            return {"method": "standard", "mean": mean_val, "std": std_val}
 
-    def normalize(
-        self,
-        data: np.ndarray,
-        params: Dict
-    ) -> np.ndarray:
+    def normalize(self, data: np.ndarray, params: dict[str, float | str]) -> np.ndarray:
         """Transform data with pre-fitted normalization parameters."""
-        if params['method'] == 'minmax':
-            return (data - params['min']) / (params['max'] - params['min'] + 1e-8)
-        return (data - params['mean']) / (params['std'] + 1e-8)
+        if params["method"] == "minmax":
+            min_val = float(params["min"])
+            max_val = float(params["max"])
+            return np.asarray((data - min_val) / (max_val - min_val + 1e-8), dtype=float)
+        mean_val = float(params["mean"])
+        std_val = float(params["std"])
+        return np.asarray((data - mean_val) / (std_val + 1e-8), dtype=float)
 
-    def denormalize(
-        self,
-        data: np.ndarray,
-        params: Dict
-    ) -> np.ndarray:
+    def denormalize(self, data: np.ndarray, params: dict[str, float | str]) -> np.ndarray:
         """Denormalize data."""
-        if params['method'] == 'minmax':
-            return data * (params['max'] - params['min']) + params['min']
+        if params["method"] == "minmax":
+            min_val = float(params["min"])
+            max_val = float(params["max"])
+            return np.asarray(data * (max_val - min_val) + min_val, dtype=float)
         else:
-            return data * params['std'] + params['mean']
+            mean_val = float(params["mean"])
+            std_val = float(params["std"])
+            return np.asarray(data * std_val + mean_val, dtype=float)
 
-    def compute_metrics(
-        self,
-        y_true: np.ndarray,
-        y_pred: np.ndarray
-    ) -> Dict[str, float]:
+    def compute_metrics(self, y_true: np.ndarray, y_pred: np.ndarray) -> dict[str, float]:
         """Compute evaluation metrics, including robust MAPE and MASE."""
         mae = np.mean(np.abs(y_true - y_pred))
         mse = np.mean((y_true - y_pred) ** 2)
@@ -189,32 +174,38 @@ class Trainer:
         r2 = 1 - (ss_res / (ss_tot + 1e-8))
 
         return {
-            'mae': float(mae),
-            'mse': float(mse),
-            'rmse': float(rmse),
-            'mape': float(mape),
-            'mase': float(mase),
-            'r2': float(r2)
+            "mae": float(mae),
+            "mse": float(mse),
+            "rmse": float(rmse),
+            "mape": float(mape),
+            "mase": float(mase),
+            "r2": float(r2),
         }
-
 
     def train(
         self,
-        data: Optional[np.ndarray] = None,
-        X: Optional[Any] = None,
-        y: Optional[np.ndarray] = None,
+        data: np.ndarray | None = None,
+        X: Any | None = None,
+        y: np.ndarray | None = None,
         epochs: int = 100,
         batch_size: int = 32,
         test_size: float = 0.2,
         val_size: float = 0.2,
         normalize: bool = True,
-        normalize_method: str = 'minmax',
+        normalize_method: str = "minmax",
         early_stopping: bool = True,
         verbose: int = 1,
-        extra_callbacks: Optional[list] = None,
-        extra_metric_fns: Optional[Dict[str, Callable[[np.ndarray, np.ndarray], float]]] = None
-    ) -> Dict[str, Any]:
+        extra_callbacks: list[Any] | None = None,
+        extra_metric_fns: dict[str, Callable[[np.ndarray, np.ndarray], float]] | None = None,
+    ) -> dict[str, Any]:
         """Full training pipeline with leakage-safe split/normalization."""
+        X_tr: Any
+        X_v: Any
+        X_test: Any
+        y_tr: np.ndarray
+        y_v: np.ndarray
+        y_test: np.ndarray
+
         if X is not None and y is not None:
             # Use provided windows directly
             X_train, X_test, y_train, y_test = self.train_test_split(X, y, test_size=test_size)
@@ -226,9 +217,9 @@ class Trainer:
             else:
                 X_tr = X_train[:split_idx]
                 X_v = X_train[split_idx:]
-            
+
             y_tr, y_v = y_train[:split_idx], y_train[split_idx:]
-            
+
             self.split_indices = {
                 "train": {"start": 0, "end": split_idx},
                 "val": {"start": split_idx, "end": len(X_train)},
@@ -253,16 +244,16 @@ class Trainer:
             X_test, y_test = self.create_sequences(test_raw)
 
         results = {
-            'start_time': datetime.now().isoformat(),
-            'config': {
-                'sequence_length': self.sequence_length,
-                'prediction_horizon': self.prediction_horizon,
-                'epochs': epochs,
-                'batch_size': batch_size,
-                'test_size': test_size,
-                'val_size': val_size,
-                'normalize_method': normalize_method,
-            }
+            "start_time": datetime.now().isoformat(),
+            "config": {
+                "sequence_length": self.sequence_length,
+                "prediction_horizon": self.prediction_horizon,
+                "epochs": epochs,
+                "batch_size": batch_size,
+                "test_size": test_size,
+                "val_size": val_size,
+                "normalize_method": normalize_method,
+            },
         }
 
         if len(X_tr) == 0 or len(X_v) == 0 or len(X_test) == 0:
@@ -290,10 +281,13 @@ class Trainer:
             for name, fn in extra_metric_fns.items():
                 metrics[name] = float(fn(y_test, y_pred))
 
-        results['end_time'] = datetime.now().isoformat()
-        results['history'] = history
-        results['metrics'] = metrics
-        results['split_indices'] = self.split_indices
+        results["end_time"] = datetime.now().isoformat()
+        results["history"] = history
+        results["metrics"] = metrics
+        results["split_indices"] = self.split_indices
+        results["X_test"] = X_test
+        results["y_test"] = y_test
+        results["y_pred"] = y_pred
 
         self.metrics = metrics
         self.X_test = X_test
@@ -305,18 +299,12 @@ class Trainer:
         return results
 
     def cross_validate(
-        self,
-        X: Any,
-        y: np.ndarray,
-        n_splits: int = 5,
-        epochs: int = 50,
-        batch_size: int = 32,
-        verbose: int = 0
-    ) -> Dict[str, Any]:
+        self, X: Any, y: np.ndarray, n_splits: int = 5, epochs: int = 50, batch_size: int = 32, verbose: int = 0
+    ) -> dict[str, Any]:
         """Time-series cross-validation."""
         n_samples = len(y)
         indices = np.arange(n_samples)
-        
+
         # Simple rolling window / expanding window approach
         fold_size = n_samples // (n_splits + 1)
         all_metrics = []
@@ -324,38 +312,37 @@ class Trainer:
         for i in range(n_splits):
             train_idx = indices[: (i + 1) * fold_size]
             test_idx = indices[(i + 1) * fold_size : (i + 2) * fold_size]
-            
+
             if len(test_idx) == 0:
                 break
-                
+
             if isinstance(X, list):
                 X_tr = [x[train_idx] for x in X]
                 X_te = [x[test_idx] for x in X]
             else:
                 X_tr = X[train_idx]
                 X_te = X[test_idx]
-            
+
             y_tr, y_te = y[train_idx], y[test_idx]
 
             # Re-build/reset model if possible? For now, assume model is clean or re-trains
-            self.model.fit_model(X_tr, y_tr, epochs=epochs, batch_size=batch_size, verbose=verbose, early_stopping=False)
+            self.model.fit_model(
+                X_tr, y_tr, epochs=epochs, batch_size=batch_size, verbose=verbose, early_stopping=False
+            )
             y_pred = self.model.predict(X_te)
             metrics = self.compute_metrics(y_te, y_pred)
             all_metrics.append(metrics)
-            logger.info(f"Fold {i+1}/{n_splits} - RMSE: {metrics['rmse']:.4f}")
+            logger.info(f"Fold {i + 1}/{n_splits} - RMSE: {metrics['rmse']:.4f}")
 
         # Aggregate metrics
         avg_metrics = {}
-        for key in all_metrics[0].keys():
+        for key in all_metrics[0]:
             avg_metrics[key] = float(np.mean([m[key] for m in all_metrics]))
             avg_metrics[f"{key}_std"] = float(np.std([m[key] for m in all_metrics]))
 
-        return {
-            "avg_metrics": avg_metrics,
-            "folds": all_metrics
-        }
+        return {"avg_metrics": avg_metrics, "folds": all_metrics}
 
-    def save_checkpoint(self, name: str = None) -> str:
+    def save_checkpoint(self, name: str | None = None) -> str:
         """Save model checkpoint."""
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         raw_name = name or f"model_{timestamp}"
@@ -367,7 +354,7 @@ class Trainer:
 
         metrics_stem = Path(raw_name).stem
         metrics_path = os.path.join(self.save_dir, f"{metrics_stem}_metrics.json")
-        with open(metrics_path, 'w') as f:
+        with open(metrics_path, "w") as f:
             json.dump(self.metrics, f, indent=2)
 
         logger.info(f"Checkpoint saved: {path}")
@@ -381,10 +368,10 @@ class Trainer:
         self,
         run_id: str,
         base_dir: str = "artifacts",
-        config: Optional[Dict[str, Any]] = None,
-        report: Optional[str] = None,
-        preprocessor_blob: Optional[bytes] = None
-    ) -> Dict[str, str]:
+        config: dict[str, Any] | None = None,
+        report: str | None = None,
+        preprocessor_blob: bytes | None = None,
+    ) -> dict[str, str]:
         """Save artifacts under run_id-scoped paths."""
         self._validate_run_id(run_id)
 
@@ -438,9 +425,7 @@ class Trainer:
             raise ValueError("Invalid artifact path layout; expected .../models/{run_id}/...") from exc
 
         if model_run_id != prep_run_id:
-            raise ValueError(
-                f"run_id mismatch between model ({model_run_id}) and preprocessor ({prep_run_id})"
-            )
+            raise ValueError(f"run_id mismatch between model ({model_run_id}) and preprocessor ({prep_run_id})")
         return True
 
     def load_checkpoint(self, path: str) -> None:

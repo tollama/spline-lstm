@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import pickle
 import subprocess
 import sys
@@ -12,7 +11,6 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-
 from src.models.lstm import BACKEND
 from src.training.runner import _load_series, _validate_run_id_consistency
 

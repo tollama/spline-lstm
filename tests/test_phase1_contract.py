@@ -90,9 +90,20 @@ def test_phase1_pipeline_emits_split_contract_file(tmp_path: Path):
     assert contract_path.exists()
 
     import json
+
     contract = json.loads(contract_path.read_text(encoding="utf-8"))
     assert contract["schema_version"] == "phase1.split_contract.v1"
     assert contract["run_id"] == "phase1-split-contract"
-    for k in ("X_train", "X_val", "X_test", "y_train", "y_val", "y_test", "time_index_train", "time_index_val", "time_index_test"):
+    for k in (
+        "X_train",
+        "X_val",
+        "X_test",
+        "y_train",
+        "y_val",
+        "y_test",
+        "time_index_train",
+        "time_index_val",
+        "time_index_test",
+    ):
         assert k in contract["canonical_outputs"]
     assert "split_index" in contract

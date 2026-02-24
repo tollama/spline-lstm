@@ -1,5 +1,5 @@
 """ML models module."""
 
-from .lstm import LSTMModel, GRUModel, BidirectionalLSTMModel, AttentionLSTMModel
+from .lstm import AttentionLSTMModel, BidirectionalLSTMModel, GRUModel, LSTMModel
 
 __all__ = ["LSTMModel", "GRUModel", "BidirectionalLSTMModel", "AttentionLSTMModel"]

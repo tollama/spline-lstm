@@ -1,6 +1,8 @@
 """Spline + LSTM Time Series Forecasting Library."""
 
-from .models.lstm import LSTMModel, BidirectionalLSTMModel
+__version__ = "0.1.0"
+
+from .models.lstm import BidirectionalLSTMModel, LSTMModel
 from .preprocessing.spline import SplinePreprocessor
 from .training.trainer import Trainer
 

@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-from fastapi.testclient import TestClient
-
 from backend.app.main import app
-
+from fastapi.testclient import TestClient
 
 client = TestClient(app)
 
@@ -18,9 +16,7 @@ def _sample_payload() -> dict:
             "known_future_covariates": {"promo": [0, 1]},
             "static_covariates": {"store_type": "A"},
         },
-        "patches": [
-            {"op": "replace", "path": "/known_future_covariates/promo/1", "value": 2, "reason": "what-if"}
-        ],
+        "patches": [{"op": "replace", "path": "/known_future_covariates/promo/1", "value": 2, "reason": "what-if"}],
     }
 
 

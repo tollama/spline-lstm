@@ -9,7 +9,7 @@ Data contract (MVP):
 from __future__ import annotations
 
 import logging
-from typing import Optional, Tuple
+from typing import Any
 
 import numpy as np
 from scipy import interpolate
@@ -30,7 +30,7 @@ class SplinePreprocessor:
         self.degree = degree
         self.smoothing_factor = smoothing_factor
         self.num_knots = num_knots
-        self._spline = None
+        self._spline: Any = None
         self._fitted = False
 
     @staticmethod
@@ -49,17 +49,13 @@ class SplinePreprocessor:
         if y.ndim != 2:
             raise ValueError(f"y must be 2D [batch, horizon], got shape={y.shape}")
         if X.shape[1] != lookback or X.shape[2] != 1:
-            raise ValueError(
-                f"X contract violated: expected [batch, {lookback}, 1], got {X.shape}"
-            )
+            raise ValueError(f"X contract violated: expected [batch, {lookback}, 1], got {X.shape}")
         if y.shape[1] != horizon:
-            raise ValueError(
-                f"y contract violated: expected [batch, {horizon}], got {y.shape}"
-            )
+            raise ValueError(f"y contract violated: expected [batch, {horizon}], got {y.shape}")
         if X.shape[0] != y.shape[0]:
             raise ValueError("X and y batch size must match")
 
-    def fit(self, x: np.ndarray, y: np.ndarray) -> "SplinePreprocessor":
+    def fit(self, x: np.ndarray, y: np.ndarray) -> SplinePreprocessor:
         """Fit spline to data."""
         x = self._to_1d_float_array(x, "x")
         y = self._to_1d_float_array(y, "y")
@@ -130,7 +126,7 @@ class SplinePreprocessor:
     def interpolate_missing(
         self,
         y: np.ndarray,
-        missing_mask: Optional[np.ndarray] = None,
+        missing_mask: np.ndarray | None = None,
     ) -> np.ndarray:
         """Interpolate missing values (NaN)."""
         y = self._to_1d_float_array(y, "y").copy()
@@ -140,9 +136,7 @@ class SplinePreprocessor:
         else:
             missing_mask = np.asarray(missing_mask, dtype=bool)
             if missing_mask.shape != y.shape:
-                raise ValueError(
-                    f"missing_mask must match y shape {y.shape}, got {missing_mask.shape}"
-                )
+                raise ValueError(f"missing_mask must match y shape {y.shape}, got {missing_mask.shape}")
 
         # No missing values: return equivalent array without fitting/interpolating.
         if not missing_mask.any():
@@ -170,7 +164,7 @@ class SplinePreprocessor:
         if len(y) <= window:
             return y
         polyorder = min(3, window - 1)
-        return savgol_filter(y, window, polyorder)
+        return np.asarray(savgol_filter(y, window, polyorder), dtype=float)
 
     def extract_features(self, y: np.ndarray) -> dict:
         """Extract simple features from spline-fitted series."""
@@ -197,7 +191,7 @@ class SplinePreprocessor:
         y: np.ndarray,
         lookback: int,
         horizon: int = 1,
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray, np.ndarray]:
         """Create supervised windows following MVP contract.
 
         Returns:
@@ -212,9 +206,7 @@ class SplinePreprocessor:
 
         n = len(series) - lookback - horizon + 1
         if n <= 0:
-            raise ValueError(
-                f"not enough points ({len(series)}) for lookback={lookback}, horizon={horizon}"
-            )
+            raise ValueError(f"not enough points ({len(series)}) for lookback={lookback}, horizon={horizon}")
 
         X = np.zeros((n, lookback, 1), dtype=np.float32)
         target = np.zeros((n, horizon), dtype=np.float32)

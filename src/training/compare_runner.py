@@ -6,7 +6,6 @@ import argparse
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Dict
 
 import numpy as np
 
@@ -23,10 +22,10 @@ def _generate_synthetic(n_samples: int = 800, noise: float = 0.08, seed: int = 4
     rng = np.random.default_rng(seed)
     t = np.linspace(0, 24 * np.pi, n_samples)
     y = np.sin(t) + 0.35 * np.sin(2.5 * t + 0.4) + noise * rng.normal(size=n_samples)
-    return y.astype(np.float32)
+    return np.asarray(y, dtype=np.float32)
 
 
-def _run_single(model_name: str, series: np.ndarray, args: argparse.Namespace) -> Dict:
+def _run_single(model_name: str, series: np.ndarray, args: argparse.Namespace) -> dict:
     model_cls = LSTMModel if model_name == "lstm" else GRUModel
     model = model_cls(
         sequence_length=args.sequence_length,
@@ -59,7 +58,7 @@ def _run_single(model_name: str, series: np.ndarray, args: argparse.Namespace) -
     }
 
 
-def run(args: argparse.Namespace) -> Dict:
+def run(args: argparse.Namespace) -> dict:
     if BACKEND != "tensorflow":
         raise RuntimeError("TensorFlow backend is required for comparison runner.")
 
@@ -79,6 +78,7 @@ def run(args: argparse.Namespace) -> Dict:
     lstm_rmse = comparisons["lstm"]["metrics"]["rmse"]
     gru_rmse = comparisons["gru"]["metrics"]["rmse"]
     winner = "lstm" if lstm_rmse <= gru_rmse else "gru"
+    rmse_gap = float(abs(lstm_rmse - gru_rmse))
 
     payload = {
         "run_id": args.run_id,
@@ -100,7 +100,7 @@ def run(args: argparse.Namespace) -> Dict:
         "models": comparisons,
         "summary": {
             "winner_by_rmse": winner,
-            "rmse_gap": float(abs(lstm_rmse - gru_rmse)),
+            "rmse_gap": rmse_gap,
         },
         "saved_at": datetime.now().isoformat(),
     }
@@ -118,7 +118,7 @@ def run(args: argparse.Namespace) -> Dict:
         "## RMSE\n"
         f"- LSTM: {lstm_rmse:.6f}\n"
         f"- GRU: {gru_rmse:.6f}\n"
-        f"- Gap: {payload['summary']['rmse_gap']:.6f}\n\n"
+        f"- Gap: {rmse_gap:.6f}\n\n"
         f"- metrics json: `{metrics_path}`\n"
     )
     report_path.write_text(report, encoding="utf-8")

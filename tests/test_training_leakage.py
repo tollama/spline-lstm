@@ -1,11 +1,12 @@
 """Tests for leakage-safe training behavior."""
 
-import numpy as np
 import os
 import sys
 
+import numpy as np
+
 # Add src to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from training.trainer import Trainer
 

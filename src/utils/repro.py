@@ -9,12 +9,12 @@ import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 import numpy as np
 
 
-def set_global_seed(seed: int, deterministic: bool = True) -> Dict[str, Any]:
+def set_global_seed(seed: int, deterministic: bool = True) -> dict[str, Any]:
     """Set seeds for Python, NumPy, and TensorFlow when available."""
     os.environ["PYTHONHASHSEED"] = str(seed)
     if deterministic:
@@ -50,7 +50,7 @@ def set_global_seed(seed: int, deterministic: bool = True) -> Dict[str, Any]:
     }
 
 
-def get_git_commit_info(repo_dir: str | Path = ".") -> Dict[str, Optional[str]]:
+def get_git_commit_info(repo_dir: str | Path = ".") -> dict[str, str | bool | None]:
     """Return git commit metadata.
 
     Policy:
@@ -96,10 +96,10 @@ def get_git_commit_info(repo_dir: str | Path = ".") -> Dict[str, Optional[str]]:
 
 def build_run_metadata(
     run_id: str,
-    seed_info: Dict[str, Any],
-    config: Dict[str, Any],
+    seed_info: dict[str, Any],
+    config: dict[str, Any],
     repo_dir: str | Path = ".",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Build a metadata payload for reproducible run tracking (legacy-compatible)."""
     git_info = get_git_commit_info(repo_dir)
     return {
@@ -119,17 +119,19 @@ def build_phase3_run_metadata(
     run_id: str,
     seed: int,
     deterministic: bool,
-    split_indices: Dict[str, Any],
-    config: Dict[str, Any],
-    artifacts: Dict[str, str],
+    split_indices: dict[str, Any],
+    config: dict[str, Any],
+    artifacts: dict[str, str],
     status: str = "success",
-    error: Optional[str] = None,
+    error: str | None = None,
     repo_dir: str | Path = ".",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Build Phase 3 fixed run metadata schema (phase3.runmeta.v1)."""
     git_info = get_git_commit_info(repo_dir)
     seq = {
-        "n_train_seq": int(split_indices.get("train", {}).get("end", 0) - split_indices.get("train", {}).get("start", 0)),
+        "n_train_seq": int(
+            split_indices.get("train", {}).get("end", 0) - split_indices.get("train", {}).get("start", 0)
+        ),
         "n_val_seq": int(split_indices.get("val", {}).get("end", 0) - split_indices.get("val", {}).get("start", 0)),
         "n_test_seq": int(split_indices.get("test", {}).get("end", 0) - split_indices.get("test", {}).get("start", 0)),
         "lookback": int(config.get("sequence_length", 0)),

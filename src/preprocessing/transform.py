@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, Tuple
 
 import numpy as np
 
@@ -14,7 +13,7 @@ class StandardScaler1D:
     std_: float = 1.0
     fitted_: bool = False
 
-    def fit(self, y: np.ndarray) -> "StandardScaler1D":
+    def fit(self, y: np.ndarray) -> StandardScaler1D:
         arr = np.asarray(y, dtype=float)
         self.mean_ = float(np.mean(arr))
         self.std_ = float(np.std(arr))
@@ -35,7 +34,7 @@ class StandardScaler1D:
         arr = np.asarray(y, dtype=float)
         return arr * self.std_ + self.mean_
 
-    def to_dict(self) -> Dict[str, float]:
+    def to_dict(self) -> dict[str, float | str]:
         return {"type": "standard", "mean": self.mean_, "std": self.std_}
 
 
@@ -45,7 +44,7 @@ class MinMaxScaler1D:
     max_: float = 1.0
     fitted_: bool = False
 
-    def fit(self, y: np.ndarray) -> "MinMaxScaler1D":
+    def fit(self, y: np.ndarray) -> MinMaxScaler1D:
         arr = np.asarray(y, dtype=float)
         self.min_ = float(np.min(arr))
         self.max_ = float(np.max(arr))
@@ -66,7 +65,7 @@ class MinMaxScaler1D:
         arr = np.asarray(y, dtype=float)
         return arr * (self.max_ - self.min_) + self.min_
 
-    def to_dict(self) -> Dict[str, float]:
+    def to_dict(self) -> dict[str, float | str]:
         return {"type": "minmax", "min": self.min_, "max": self.max_}
 
 
@@ -83,7 +82,7 @@ def chronological_split(
     y: np.ndarray,
     train_ratio: float = 0.7,
     val_ratio: float = 0.15,
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray, Tuple[int, int]]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, tuple[int, int]]:
     """Chronological train/val/test split for 1D series."""
     if not (0 < train_ratio < 1) or not (0 <= val_ratio < 1):
         raise ValueError("invalid split ratios")

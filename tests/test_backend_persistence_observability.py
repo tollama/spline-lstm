@@ -3,11 +3,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from fastapi.testclient import TestClient
-
 from backend.app import main as backend_main
 from backend.app.main import JobRecord, JobStore, app
-
+from fastapi.testclient import TestClient
 
 client = TestClient(app)
 

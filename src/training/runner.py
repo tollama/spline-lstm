@@ -10,7 +10,18 @@ import pickle
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, cast
+
+import numpy as np
+
+from src.covariates.spec import enforce_covariate_spec, load_covariate_spec
+from src.models.lstm import BACKEND, GRUModel, LSTMModel
+from src.training.baselines import Phase3BaselineComparisonError, build_baseline_report
+from src.training.trainer import Trainer
+from src.utils.repro import build_phase3_run_metadata, build_run_metadata, get_git_commit_info, set_global_seed
+from src.utils.run_id import validate_run_id
+
+logger = logging.getLogger(__name__)
 
 
 def _fail_contract(code: str, message: str) -> ValueError:
@@ -25,21 +36,10 @@ class Phase3MetadataContractError(ValueError):
     """Raised when Phase 3 run metadata contract validation fails."""
 
 
-import numpy as np
-
-from src.covariates.spec import enforce_covariate_spec, load_covariate_spec
-from src.models.lstm import BACKEND, AttentionLSTMModel, GRUModel, LSTMModel
-from src.training.baselines import Phase3BaselineComparisonError, build_baseline_report
-from src.training.trainer import Trainer
-from src.utils.repro import build_phase3_run_metadata, build_run_metadata, get_git_commit_info, set_global_seed
-from src.utils.run_id import validate_run_id
-
-logger = logging.getLogger(__name__)
-
-
 def _make_run_id(prefix: str = "run") -> str:
     git_info = get_git_commit_info(repo_dir=".")
-    commit = (git_info.get("commit_hash") or "nogit000")[:7].lower()
+    commit_hash = git_info.get("commit_hash")
+    commit = commit_hash[:7].lower() if isinstance(commit_hash, str) and commit_hash else "nogit000"
     return f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{commit}"
 
 
@@ -47,16 +47,16 @@ def _generate_synthetic(n_samples: int = 800, noise: float = 0.08, seed: int = 4
     rng = np.random.default_rng(seed)
     t = np.linspace(0, 24 * np.pi, n_samples)
     y = np.sin(t) + 0.35 * np.sin(2.5 * t + 0.4) + noise * rng.normal(size=n_samples)
-    return y.astype(np.float32)
+    return np.asarray(y, dtype=np.float32)
 
 
-def _parse_csv_like(raw: Optional[str]) -> list[str]:
+def _parse_csv_like(raw: str | None) -> list[str]:
     if not raw:
         return []
     return [x.strip() for x in raw.split(",") if x.strip()]
 
 
-def _parse_export_formats(raw: Optional[str]) -> list[str]:
+def _parse_export_formats(raw: str | None) -> list[str]:
     """Parse and validate export format contract.
 
     Allowed values: none | onnx | tflite | onnx,tflite
@@ -106,7 +106,7 @@ def _validate_split_contract_if_applicable(processed_npz: str) -> None:
             f"split_contract.json not found next to processed.npz: {split_contract_path}",
         )
 
-    with open(split_contract_path, "r", encoding="utf-8") as f:
+    with open(split_contract_path, encoding="utf-8") as f:
         contract = json.load(f)
     schema_version = contract.get("schema_version")
     if schema_version != "phase1.split_contract.v1":
@@ -122,19 +122,19 @@ def _load_series(args: argparse.Namespace) -> np.ndarray:
         _validate_processed_contract_keys(payload)
         _validate_split_contract_if_applicable(args.processed_npz)
         if "scaled" in payload:
-            return payload["scaled"].astype(np.float32)
+            return np.asarray(payload["scaled"], dtype=np.float32)
         if "raw_target" in payload:
-            return payload["raw_target"].astype(np.float32)
+            return np.asarray(payload["raw_target"], dtype=np.float32)
         raise _fail_contract("ARTIFACT_CONTRACT_ERROR", "processed.npz must contain one of: scaled, raw_target")
 
     if args.input_npy:
         arr = np.load(args.input_npy)
-        return arr.astype(np.float32).reshape(-1)
+        return np.asarray(arr, dtype=np.float32).reshape(-1)
 
     return _generate_synthetic(n_samples=args.synthetic_samples, noise=args.synthetic_noise, seed=args.seed)
 
 
-def _load_training_arrays(args: argparse.Namespace) -> tuple[Optional[Any], Optional[np.ndarray]]:
+def _load_training_arrays(args: argparse.Namespace) -> tuple[Any | None, np.ndarray | None]:
     """Load pre-windowed X/y when available for Phase 5 contract.
     Returns:
         X: List of [X_past, X_future, X_static] or a single numpy array
@@ -146,10 +146,10 @@ def _load_training_arrays(args: argparse.Namespace) -> tuple[Optional[Any], Opti
     payload = np.load(args.processed_npz)
     _validate_processed_contract_keys(payload)
     _validate_split_contract_if_applicable(args.processed_npz)
-    
-    x_past = payload["X"] if "X" in payload else payload["X_mv"] if "X_mv" in payload else None
-    y = payload["y"] if "y" in payload else payload["y_mv"] if "y_mv" in payload else None
-    
+
+    x_past = payload.get("X", payload.get("X_mv", None))
+    y = payload.get("y", payload.get("y_mv", None))
+
     if x_past is None or y is None:
         return None, None
 
@@ -166,7 +166,7 @@ def _load_training_arrays(args: argparse.Namespace) -> tuple[Optional[Any], Opti
             X.append(np.asarray(x_fut, dtype=np.float32))
         else:
             X.append(None)
-        
+
         if x_stat is not None and x_stat.size > 0:
             X.append(np.asarray(x_stat, dtype=np.float32))
         else:
@@ -177,7 +177,7 @@ def _load_training_arrays(args: argparse.Namespace) -> tuple[Optional[Any], Opti
     return X, y
 
 
-def _load_processed_feature_names(processed_npz: Optional[str]) -> list[str]:
+def _load_processed_feature_names(processed_npz: str | None) -> list[str]:
     if not processed_npz:
         return []
     payload = np.load(processed_npz)
@@ -187,7 +187,7 @@ def _load_processed_feature_names(processed_npz: Optional[str]) -> list[str]:
     return [x for x in names if x]
 
 
-def _extract_run_id_from_processed_path(processed_npz: str) -> Optional[str]:
+def _extract_run_id_from_processed_path(processed_npz: str) -> str | None:
     path = Path(processed_npz)
     # expected: .../processed/{run_id}/processed.npz
     if path.name != "processed.npz":
@@ -201,7 +201,7 @@ def _extract_run_id_from_processed_path(processed_npz: str) -> Optional[str]:
     return parts[idx + 1]
 
 
-def _load_preprocessor_run_id(preprocessor_path: Path) -> Optional[str]:
+def _load_preprocessor_run_id(preprocessor_path: Path) -> str | None:
     if not preprocessor_path.exists():
         return None
     with open(preprocessor_path, "rb") as f:
@@ -213,26 +213,22 @@ def _load_preprocessor_run_id(preprocessor_path: Path) -> Optional[str]:
     return None
 
 
-def _validate_run_id_consistency(run_id: str, args: argparse.Namespace) -> Optional[Path]:
+def _validate_run_id_consistency(run_id: str, args: argparse.Namespace) -> Path | None:
     if not args.processed_npz:
         return None
 
     processed_path = Path(args.processed_npz)
     processed_run_id = _extract_run_id_from_processed_path(args.processed_npz)
     if processed_run_id and processed_run_id != run_id:
-        raise ValueError(
-            f"run_id mismatch: cli run_id={run_id} but processed artifact path run_id={processed_run_id}"
-        )
+        raise ValueError(f"run_id mismatch: cli run_id={run_id} but processed artifact path run_id={processed_run_id}")
 
     meta_path = processed_path.parent / "meta.json"
     if meta_path.exists():
-        with open(meta_path, "r", encoding="utf-8") as f:
+        with open(meta_path, encoding="utf-8") as f:
             meta = json.load(f)
         meta_run_id = meta.get("run_id")
         if isinstance(meta_run_id, str) and meta_run_id != run_id:
-            raise ValueError(
-                f"run_id mismatch: cli run_id={run_id} but meta.json run_id={meta_run_id}"
-            )
+            raise ValueError(f"run_id mismatch: cli run_id={run_id} but meta.json run_id={meta_run_id}")
 
     if args.preprocessor_pkl:
         preprocessor_path = Path(args.preprocessor_pkl)
@@ -248,14 +244,13 @@ def _validate_run_id_consistency(run_id: str, args: argparse.Namespace) -> Optio
     preprocessor_run_id = _load_preprocessor_run_id(preprocessor_path)
     if preprocessor_run_id and preprocessor_run_id != run_id:
         raise ValueError(
-            "run_id mismatch: model/training run_id "
-            f"({run_id}) != preprocessor run_id ({preprocessor_run_id})"
+            f"run_id mismatch: model/training run_id ({run_id}) != preprocessor run_id ({preprocessor_run_id})"
         )
 
     return preprocessor_path if preprocessor_path.exists() else None
 
 
-def _write_json(path: Path, obj: Dict[str, Any]) -> None:
+def _write_json(path: Path, obj: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(obj, f, indent=2, ensure_ascii=False)
@@ -330,7 +325,7 @@ def _map_exception_to_exit_code(exc: Exception) -> int:
     return 24
 
 
-def _build_error_payload(exc: Exception) -> Dict[str, Any]:
+def _build_error_payload(exc: Exception) -> dict[str, Any]:
     code = _map_exception_to_exit_code(exc)
     msg = str(exc)
     msg_lower = msg.lower()
@@ -367,28 +362,28 @@ def _build_error_payload(exc: Exception) -> Dict[str, Any]:
     }
 
 
-def _validate_phase3_metadata_contract(run_id: str, runmeta: Dict[str, Any]) -> None:
+def _validate_phase3_metadata_contract(run_id: str, runmeta: dict[str, Any]) -> None:
     """Validate strict Phase 3 runmeta contract before persisting artifacts."""
 
     def _require(condition: bool, message: str) -> None:
         if not condition:
             raise Phase3MetadataContractError(f"phase3 metadata contract invalid: {message}")
 
-    def _require_dict(obj: Any, path: str) -> Dict[str, Any]:
+    def _require_dict(obj: Any, path: str) -> dict[str, Any]:
         _require(isinstance(obj, dict), f"'{path}' must be object")
-        return obj
+        return cast(dict[str, Any], obj)
 
     def _require_str(obj: Any, path: str) -> str:
         _require(isinstance(obj, str) and bool(obj.strip()), f"'{path}' must be non-empty string")
-        return obj
+        return cast(str, obj)
 
     def _require_bool(obj: Any, path: str) -> bool:
         _require(isinstance(obj, bool), f"'{path}' must be boolean")
-        return obj
+        return cast(bool, obj)
 
     def _require_int(obj: Any, path: str) -> int:
         _require(isinstance(obj, int) and not isinstance(obj, bool), f"'{path}' must be integer")
-        return obj
+        return cast(int, obj)
 
     _require_dict(runmeta, "$")
     _require(runmeta.get("schema_version") == "phase3.runmeta.v1", "'schema_version' must be 'phase3.runmeta.v1'")
@@ -457,11 +452,7 @@ def _build_callbacks(checkpoint_dir: Path):
 
 
 def _build_model(
-    args: argparse.Namespace, 
-    output_units: int, 
-    input_features: int,
-    static_features: int = 0,
-    future_features: int = 0
+    args: argparse.Namespace, output_units: int, input_features: int, static_features: int = 0, future_features: int = 0
 ):
     model_map = {
         "lstm": LSTMModel,
@@ -481,7 +472,7 @@ def _build_model(
     )
 
 
-def _compute_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str, float]:
+def _compute_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> dict[str, float]:
     mae = np.mean(np.abs(y_true - y_pred))
     mse = np.mean((y_true - y_pred) ** 2)
     rmse = np.sqrt(mse)
@@ -510,18 +501,14 @@ def _compute_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str, float]
     }
 
 
-def run(args: argparse.Namespace) -> Dict[str, Any]:
+def run(args: argparse.Namespace) -> dict[str, Any]:
     if BACKEND != "tensorflow":
-        raise RuntimeError(
-            "TensorFlow backend is required for Phase 3 runner. "
-            "Install tensorflow and retry."
-        )
+        raise RuntimeError("TensorFlow backend is required for Phase 3 runner. Install tensorflow and retry.")
 
     run_id = args.run_id or _make_run_id()
     run_id = validate_run_id(run_id, mode=args.run_id_validation)
     preprocessor_path = _validate_run_id_consistency(run_id, args)
     seed_info = set_global_seed(args.seed, deterministic=args.deterministic)
-    run_start_time = datetime.now().isoformat()
 
     target_cols = _parse_csv_like(args.target_cols)
     dynamic_covariates = _parse_csv_like(args.dynamic_covariates)
@@ -555,8 +542,8 @@ def run(args: argparse.Namespace) -> Dict[str, Any]:
     callbacks = _build_callbacks(checkpoint_dir)
 
     X_direct, y_direct = _load_training_arrays(args)
-    split_indices: Dict[str, Any] = {}
-    baselines_obj: Dict[str, Any] = {
+    split_indices: dict[str, Any] = {}
+    baselines_obj: dict[str, Any] = {
         "skipped": True,
         "reason": "only computed for univariate series mode",
     }
@@ -575,11 +562,11 @@ def run(args: argparse.Namespace) -> Dict[str, Any]:
 
         output_units = int(y_direct.shape[1])
         model = _build_model(
-            args, 
-            output_units=output_units, 
+            args,
+            output_units=output_units,
             input_features=input_features,
             static_features=static_features,
-            future_features=future_features
+            future_features=future_features,
         )
 
         trainer = Trainer(
@@ -597,7 +584,7 @@ def run(args: argparse.Namespace) -> Dict[str, Any]:
                 n_splits=args.cv_splits,
                 epochs=args.epochs,
                 batch_size=args.batch_size,
-                verbose=args.verbose
+                verbose=args.verbose,
             )
             # Use CV metrics as primary results context if needed
             logger.info(f"CV Avg RMSE: {cv_results['avg_metrics']['rmse']:.4f}")
@@ -688,7 +675,7 @@ def run(args: argparse.Namespace) -> Dict[str, Any]:
             "sequence_length": int(args.sequence_length),
         }
 
-    config_snapshot: Dict[str, Any] = {
+    config_snapshot: dict[str, Any] = {
         "sequence_length": args.sequence_length,
         "horizon": args.horizon,
         "hidden_units": args.hidden_units,
@@ -741,7 +728,7 @@ def run(args: argparse.Namespace) -> Dict[str, Any]:
             "phase3 baseline comparison skipped: univariate mode requires baseline report"
         )
 
-    payload: Dict[str, Any] = {
+    payload: dict[str, Any] = {
         "run_id": run_id,
         "backend": BACKEND,
         "config": config_snapshot,
@@ -803,16 +790,16 @@ def run(args: argparse.Namespace) -> Dict[str, Any]:
 - seed: {args.seed}
 
 ## Evaluation Metrics
-- MAE: {results['metrics']['mae']:.6f}
-- MSE: {results['metrics']['mse']:.6f}
-- RMSE: {results['metrics']['rmse']:.6f}
-- MAPE: {results['metrics']['mape']:.4f}
-- MASE: {results['metrics'].get('mase', float('nan')):.6f}
-- R2: {results['metrics']['r2']:.6f}
+- MAE: {results["metrics"]["mae"]:.6f}
+- MSE: {results["metrics"]["mse"]:.6f}
+- RMSE: {results["metrics"]["rmse"]:.6f}
+- MAPE: {results["metrics"]["mape"]:.4f}
+- MASE: {results["metrics"].get("mase", float("nan")):.6f}
+- R2: {results["metrics"]["r2"]:.6f}
 
 ## Baseline Comparison
-- Naive(last) RMSE: {baselines_obj.get('naive_last', {}).get('rmse', 'n/a')}
-- MA({args.ma_window or args.sequence_length}) RMSE: {baselines_obj.get('metrics', {}).get('baseline', {}).get('ma', {}).get('rmse', 'n/a')}
+- Naive(last) RMSE: {baselines_obj.get("naive_last", {}).get("rmse", "n/a")}
+- MA({args.ma_window or args.sequence_length}) RMSE: {baselines_obj.get("metrics", {}).get("baseline", {}).get("ma", {}).get("rmse", "n/a")}
 
 ## Inference (latest test window)
 - y_true_last: {y_true_last.tolist()}
@@ -821,7 +808,7 @@ def run(args: argparse.Namespace) -> Dict[str, Any]:
 ## Reproducibility Artifacts
 - split indices: `{split_path}`
 - config snapshot: `{config_snapshot_path}`
-- commit hash: `{run_metadata.get('commit_hash')}` (source: `{run_metadata.get('commit_hash_source')}`)
+- commit hash: `{run_metadata.get("commit_hash")}` (source: `{run_metadata.get("commit_hash_source")}`)
 - metadata(commit+seed): `{metadata_path}`
 - run metadata(v1): `{runmeta_path}`
 
@@ -906,7 +893,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--early-stopping", action="store_true", default=True)
     p.add_argument("--no-early-stopping", action="store_false", dest="early_stopping")
     p.add_argument("--seed", type=int, default=42)
-    p.add_argument("--ma-window", type=int, default=None, help="Moving-average baseline window (default: sequence-length)")
+    p.add_argument(
+        "--ma-window", type=int, default=None, help="Moving-average baseline window (default: sequence-length)"
+    )
     p.add_argument(
         "--deterministic",
         action="store_true",

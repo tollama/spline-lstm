@@ -10,10 +10,10 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
+from models.lstm import LSTMModel
 from preprocessing.pipeline import PreprocessingConfig, run_preprocessing_pipeline
 from preprocessing.validators import DataContract, validate_time_series_schema
 from preprocessing.window import make_windows_multivariate
-from models.lstm import LSTMModel
 
 
 def test_validate_schema_with_covariates_accepts_numeric_columns():
@@ -89,7 +89,9 @@ def test_pipeline_multivariate_artifact_contract_keys(tmp_path: Path):
 
     out = run_preprocessing_pipeline(
         input_path=str(input_csv),
-        config=PreprocessingConfig(run_id="phase5-mv-contract", lookback=8, horizon=2, covariate_cols=("temp", "promo")),
+        config=PreprocessingConfig(
+            run_id="phase5-mv-contract", lookback=8, horizon=2, covariate_cols=("temp", "promo")
+        ),
         artifacts_dir=str(tmp_path / "artifacts"),
     )
 

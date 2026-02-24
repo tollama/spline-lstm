@@ -7,7 +7,6 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-
 from src.training.runner import _compute_metrics, _load_training_arrays, _parse_csv_like, _parse_export_formats
 
 
@@ -35,7 +34,9 @@ def test_load_training_arrays_prefers_phase5_xy_keys(tmp_path: Path):
     npz = tmp_path / "processed.npz"
     X = np.random.randn(12, 6, 4).astype(np.float32)
     y = np.random.randn(12, 4).astype(np.float32)
-    np.savez_compressed(npz, X=X, y=y, feature_names=np.array(["target","c1","c2","c3"]), target_indices=np.array([0]))
+    np.savez_compressed(
+        npz, X=X, y=y, feature_names=np.array(["target", "c1", "c2", "c3"]), target_indices=np.array([0])
+    )
 
     args = argparse.Namespace(processed_npz=str(npz), sequence_length=6)
     x_out, y_out = _load_training_arrays(args)
@@ -49,7 +50,9 @@ def test_load_training_arrays_supports_legacy_xmv_ymv_keys(tmp_path: Path):
     npz = tmp_path / "processed.npz"
     X_mv = np.random.randn(10, 5, 3).astype(np.float32)
     y_mv = np.random.randn(10, 2).astype(np.float32)
-    np.savez_compressed(npz, X_mv=X_mv, y_mv=y_mv, feature_names=np.array(["target","c1","c2"]), target_indices=np.array([0]))
+    np.savez_compressed(
+        npz, X_mv=X_mv, y_mv=y_mv, feature_names=np.array(["target", "c1", "c2"]), target_indices=np.array([0])
+    )
 
     args = argparse.Namespace(processed_npz=str(npz), sequence_length=5)
     x_out, y_out = _load_training_arrays(args)

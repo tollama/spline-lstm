@@ -24,8 +24,6 @@ def validate_run_id(run_id: str, mode: str = "legacy") -> str:
         raise ValueError("run_id must not contain path separators")
 
     if mode == "strict" and not STRICT_RUN_ID_RE.match(run_id):
-        raise ValueError(
-            "run_id must match strict format YYYYMMDD_HHMMSS_<shortsha> (hex sha length 7-12)"
-        )
+        raise ValueError("run_id must match strict format YYYYMMDD_HHMMSS_<shortsha> (hex sha length 7-12)")
 
     return run_id

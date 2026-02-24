@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 import numpy as np
-
 import pytest
-
 from src.training.baselines import Phase3BaselineComparisonError, build_baseline_report
 
 

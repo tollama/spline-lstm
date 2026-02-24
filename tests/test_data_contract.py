@@ -13,8 +13,8 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from preprocessing.spline import SplinePreprocessor
 from models.lstm import LSTMModel
+from preprocessing.spline import SplinePreprocessor
 
 
 class TestSupervisedDataContract:

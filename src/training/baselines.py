@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict
+from typing import Any
 
 import numpy as np
 
@@ -15,10 +15,10 @@ class Phase3BaselineComparisonError(ValueError):
 @dataclass
 class BaselineResult:
     name: str
-    metrics: Dict[str, float]
+    metrics: dict[str, float]
 
 
-def _compute_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str, float]:
+def _compute_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> dict[str, float]:
     y_true = np.asarray(y_true, dtype=np.float32).reshape(-1)
     y_pred = np.asarray(y_pred, dtype=np.float32).reshape(-1)
 
@@ -42,7 +42,7 @@ def _compute_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str, float]
     }
 
 
-def _validate_phase3_baseline_report(report: Dict[str, Any]) -> None:
+def _validate_phase3_baseline_report(report: dict[str, Any]) -> None:
     """Validate Phase 3 baseline comparison contract in one place.
 
     Hard-fails on malformed/non-finite RMSE values because Phase 3 requires
@@ -90,7 +90,7 @@ def build_baseline_report(
     X_test: np.ndarray,
     horizon: int = 1,
     ma_window: int | None = None,
-) -> Dict:
+) -> dict:
     """Compute baseline predictions + metrics and relative improvement vs LSTM."""
     y_true_2d = np.asarray(y_true, dtype=np.float32).reshape(-1, horizon)
     y_lstm_2d = np.asarray(y_lstm, dtype=np.float32).reshape(-1, horizon)

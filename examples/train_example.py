@@ -2,18 +2,13 @@
 Example: Spline + LSTM Time Series Forecasting
 
 This script demonstrates the basic usage of the Spline + LSTM library.
+
+Install the package first: pip install -e .
 """
 
 import numpy as np
-import matplotlib.pyplot as plt
-import sys
-import os
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
-
-from preprocessing.spline import SplinePreprocessor
-from models.lstm import LSTMModel, BidirectionalLSTMModel
-from training.trainer import Trainer
+from src import LSTMModel, SplinePreprocessor, Trainer
 
 
 def generate_synthetic_data(n_samples: int = 1000, noise: float = 0.1):

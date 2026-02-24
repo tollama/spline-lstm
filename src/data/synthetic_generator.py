@@ -14,9 +14,9 @@ from __future__ import annotations
 
 import argparse
 import json
+from collections.abc import Callable, Sequence
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Callable, Sequence
 
 import numpy as np
 import pandas as pd
@@ -69,7 +69,7 @@ def _scenario_s1(rng: np.random.Generator, t: np.ndarray, noise_scale: float) ->
     seasonal_daily = 1.2 * np.sin(2 * np.pi * t / 24)
     seasonal_weekly = 0.7 * np.sin(2 * np.pi * t / (24 * 7))
     noise = rng.normal(0, noise_scale, len(t))
-    return 10.0 + trend + seasonal_daily + seasonal_weekly + noise
+    return np.asarray(10.0 + trend + seasonal_daily + seasonal_weekly + noise, dtype=float)
 
 
 def _scenario_s2(rng: np.random.Generator, t: np.ndarray, noise_scale: float) -> np.ndarray:
@@ -100,7 +100,7 @@ def _scenario_s3(rng: np.random.Generator, t: np.ndarray, noise_scale: float) ->
     spike_mask = rng.random(len(t)) < 0.025
     spike_amp = rng.normal(loc=0.0, scale=3.5, size=len(t))
     y += spike_mask * spike_amp
-    return y
+    return np.asarray(y, dtype=float)
 
 
 def generate_dataframe(config: GeneratorConfig) -> pd.DataFrame:

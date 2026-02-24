@@ -7,7 +7,6 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-
 from src.training.runner import _validate_run_id_consistency
 
 

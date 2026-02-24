@@ -5,7 +5,6 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-
 from src.training.runner import (
     Phase3BaselineComparisonSkippedError,
     Phase3MetadataContractError,

@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Tuple
-
 import numpy as np
 
 
-def make_windows(series: np.ndarray, lookback: int, horizon: int = 1) -> Tuple[np.ndarray, np.ndarray]:
+def make_windows(series: np.ndarray, lookback: int, horizon: int = 1) -> tuple[np.ndarray, np.ndarray]:
     """Create supervised windows.
 
     Returns:
@@ -41,8 +39,8 @@ def make_windows_multivariate(
     target: np.ndarray,
     lookback: int,
     horizon: int = 1,
-    future_features: Optional[np.ndarray] = None,
-) -> Tuple[np.ndarray, np.ndarray, Optional[np.ndarray]]:
+    future_features: np.ndarray | None = None,
+) -> tuple[np.ndarray, np.ndarray] | tuple[np.ndarray, np.ndarray, np.ndarray | None]:
     """Create windows for multivariate inputs with target-only labels.
 
     Args:
@@ -53,9 +51,8 @@ def make_windows_multivariate(
         future_features: [time, n_future_features] matrix (known-future covariates).
 
     Returns:
-        X: [batch, lookback, n_features]
-        y: [batch, horizon]
-        X_future: [batch, horizon, n_future_features] or None
+        (X, y) when future features are not provided.
+        (X, y, X_future) when future features are provided.
     """
     f = np.asarray(features, dtype=float)
     t = np.asarray(target, dtype=float).reshape(-1)
@@ -82,6 +79,8 @@ def make_windows_multivariate(
 
     n = len(f) - lookback - horizon + 1
     if n <= 0:
+        if ff is None:
+            return np.array([]), np.array([])
         return np.array([]), np.array([]), None
 
     X = np.zeros((n, lookback, f.shape[1]), dtype=np.float32)
@@ -94,4 +93,6 @@ def make_windows_multivariate(
         if X_fut is not None and ff is not None:
             X_fut[i, :, :] = ff[i + lookback : i + lookback + horizon, :]
 
+    if ff is None:
+        return X, y
     return X, y, X_fut

@@ -4,19 +4,21 @@ from __future__ import annotations
 
 import json
 import pickle
+from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Sequence
+from typing import cast
 
 import numpy as np
 import pandas as pd
+
+from src.covariates.spec import enforce_covariate_spec, load_covariate_spec
+from src.utils.run_id import validate_run_id
 
 from .spline import SplinePreprocessor
 from .transform import build_scaler, chronological_split
 from .validators import DataContract, validate_time_series_schema
 from .window import make_windows, make_windows_multivariate
-from src.covariates.spec import enforce_covariate_spec, load_covariate_spec
-from src.utils.run_id import validate_run_id
 
 
 @dataclass
@@ -31,15 +33,15 @@ class PreprocessingConfig:
     covariate_cols: Sequence[str] = ()  # Dynamic/Past covariates
     static_covariate_cols: Sequence[str] = ()
     future_covariate_cols: Sequence[str] = ()
-    covariate_spec: Optional[str] = None
+    covariate_spec: str | None = None
 
 
 def _validate_run_id(run_id: str) -> None:
     validate_run_id(run_id, mode="legacy")
 
 
-def _normalize_covariate_cols(cols: Sequence[str]) -> List[str]:
-    out: List[str] = []
+def _normalize_covariate_cols(cols: Sequence[str]) -> list[str]:
+    out: list[str] = []
     for c in cols:
         if not isinstance(c, str):
             raise ValueError("covariate column names must be strings")
@@ -51,17 +53,28 @@ def _normalize_covariate_cols(cols: Sequence[str]) -> List[str]:
     return out
 
 
-def _scale_covariates_train_only(covariates: np.ndarray, train_end: int, method: str) -> tuple[np.ndarray, Dict[str, np.ndarray]]:
+def _merge_unique(*groups: Sequence[str]) -> list[str]:
+    merged: list[str] = []
+    for group in groups:
+        for item in group:
+            if item not in merged:
+                merged.append(item)
+    return merged
+
+
+def _scale_covariates_train_only(
+    covariates: np.ndarray, train_end: int, method: str
+) -> tuple[np.ndarray, dict[str, str | np.ndarray]]:
     if covariates.ndim != 2:
         raise ValueError(f"covariates must be 2D [time, n_covariates], got {covariates.shape}")
     if train_end <= 0 or train_end >= len(covariates):
         raise ValueError("invalid train_end boundary for covariate scaling")
 
     scaled = np.zeros_like(covariates, dtype=float)
-    mins: List[float] = []
-    maxs: List[float] = []
-    means: List[float] = []
-    stds: List[float] = []
+    mins: list[float] = []
+    maxs: list[float] = []
+    means: list[float] = []
+    stds: list[float] = []
 
     for i in range(covariates.shape[1]):
         sc = build_scaler(method)
@@ -87,7 +100,7 @@ def run_preprocessing_pipeline(
     input_path: str,
     config: PreprocessingConfig,
     artifacts_dir: str = "artifacts",
-) -> Dict[str, str]:
+) -> dict[str, str]:
     """Run schema -> interpolate/smooth -> scale -> windowing and save artifacts.
 
     Saved artifacts:
@@ -101,18 +114,16 @@ def run_preprocessing_pipeline(
     if not in_path.exists():
         raise FileNotFoundError(f"input file not found: {input_path}")
 
-    if in_path.suffix.lower() == ".parquet":
-        raw = pd.read_parquet(in_path)
-    else:
-        raw = pd.read_csv(in_path)
+    raw = pd.read_parquet(in_path) if in_path.suffix.lower() == ".parquet" else pd.read_csv(in_path)
 
     covariate_cols = _normalize_covariate_cols(config.covariate_cols)
     static_cols = _normalize_covariate_cols(config.static_covariate_cols)
     future_cols = _normalize_covariate_cols(config.future_covariate_cols)
 
     covariate_spec_raw = load_covariate_spec(config.covariate_spec)
+    declared_dynamic = _merge_unique(covariate_cols, future_cols)
     covariate_contract = enforce_covariate_spec(
-        declared_dynamic=list(set(covariate_cols) | set(future_cols)),
+        declared_dynamic=declared_dynamic,
         declared_static=static_cols,
         available_columns=raw.columns,
         spec_payload=covariate_spec_raw,
@@ -125,7 +136,7 @@ def run_preprocessing_pipeline(
         contract=DataContract(
             timestamp_col=config.timestamp_col,
             target_col=config.target_col,
-            covariate_cols=tuple(set(covariate_cols) | set(static_cols) | set(future_cols)),
+            covariate_cols=tuple(_merge_unique(covariate_cols, static_cols, future_cols)),
         ),
         allow_missing_target=True,
         lookback=config.lookback,
@@ -183,13 +194,18 @@ def run_preprocessing_pipeline(
             s_cov_df = validated[static_cols].copy().ffill().bfill().fillna(0.0)
             static_features = s_cov_df.to_numpy(dtype=float)
 
-        X_mv, y_mv, X_fut = make_windows_multivariate(
+        windowed = make_windows_multivariate(
             features=features_scaled,
             target=series_scaled,
             lookback=config.lookback,
             horizon=config.horizon,
             future_features=future_features_scaled,
         )
+        if len(windowed) == 2:
+            X_mv, y_mv = windowed
+            X_fut = None
+        else:
+            X_mv, y_mv, X_fut = windowed
 
     base = Path(artifacts_dir)
     processed_dir = base / "processed" / config.run_id
@@ -248,10 +264,10 @@ def run_preprocessing_pipeline(
             "future_covariate_cols": list(future_cols),
             "covariate_scaler": {
                 "method": covariate_scaler["method"],
-                "mean": covariate_scaler["mean"].tolist(),
-                "std": covariate_scaler["std"].tolist(),
-                "min": covariate_scaler["min"].tolist(),
-                "max": covariate_scaler["max"].tolist(),
+                "mean": cast(np.ndarray, covariate_scaler["mean"]).tolist(),
+                "std": cast(np.ndarray, covariate_scaler["std"]).tolist(),
+                "min": cast(np.ndarray, covariate_scaler["min"]).tolist(),
+                "max": cast(np.ndarray, covariate_scaler["max"]).tolist(),
             }
             if covariate_scaler is not None
             else None,

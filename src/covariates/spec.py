@@ -9,8 +9,8 @@ Contract goals:
 from __future__ import annotations
 
 import json
-from typing import Any, Dict, List, Optional, Sequence
-
+from collections.abc import Sequence
+from typing import Any
 
 _ALLOWED_TYPES = {"numeric", "categorical", "boolean"}
 _ALLOWED_SCHEMA_VERSION = "covariate_spec.v1"
@@ -33,17 +33,17 @@ def _to_unique_str_list(values: Sequence[str], label: str) -> list[str]:
     return out
 
 
-def load_covariate_spec(path: Optional[str]) -> Dict[str, Any]:
+def load_covariate_spec(path: str | None) -> dict[str, Any]:
     if not path:
         return {}
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         payload = json.load(f)
     if not isinstance(payload, dict):
         raise ValueError("covariate spec must be a JSON object")
     return payload
 
 
-def _normalize_covariate_entry(group_key: str, index: int, item: Dict[str, Any], seen: set[str]) -> Dict[str, Any]:
+def _normalize_covariate_entry(group_key: str, index: int, item: dict[str, Any], seen: set[str]) -> dict[str, Any]:
     name = item.get("name")
     ctype = item.get("type", "numeric")
     required = item.get("required", False)
@@ -56,9 +56,7 @@ def _normalize_covariate_entry(group_key: str, index: int, item: Dict[str, Any],
     seen.add(name)
 
     if not isinstance(ctype, str) or ctype not in _ALLOWED_TYPES:
-        raise ValueError(
-            f"covariate spec field '{group_key}[{index}].type' must be one of {sorted(_ALLOWED_TYPES)}"
-        )
+        raise ValueError(f"covariate spec field '{group_key}[{index}].type' must be one of {sorted(_ALLOWED_TYPES)}")
     if not isinstance(required, bool):
         raise ValueError(f"covariate spec field '{group_key}[{index}].required' must be boolean")
 
@@ -69,7 +67,7 @@ def _normalize_covariate_entry(group_key: str, index: int, item: Dict[str, Any],
     }
 
 
-def validate_covariate_spec_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
+def validate_covariate_spec_payload(payload: dict[str, Any]) -> dict[str, Any]:
     if not payload:
         return {}
 
@@ -81,7 +79,7 @@ def validate_covariate_spec_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
             f"covariate spec field 'schema_version' must be '{_ALLOWED_SCHEMA_VERSION}', got '{schema_version}'"
         )
 
-    normalized: Dict[str, Any] = {
+    normalized: dict[str, Any] = {
         "schema_version": schema_version,
         "dynamic_covariates": [],
         "static_covariates": [],
@@ -107,7 +105,7 @@ def validate_covariate_spec_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
     if not isinstance(imputation_policy, dict):
         raise ValueError("covariate spec field 'imputation_policy' must be an object")
 
-    normalized_policy: Dict[str, str] = {}
+    normalized_policy: dict[str, str] = {}
     for key, allowed in _ALLOWED_IMPUTATION_POLICIES.items():
         value = imputation_policy.get(key)
         if value is None:
@@ -115,9 +113,7 @@ def validate_covariate_spec_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
         if not isinstance(value, str):
             raise ValueError(f"covariate spec field 'imputation_policy.{key}' must be string")
         if value not in allowed:
-            raise ValueError(
-                f"covariate spec field 'imputation_policy.{key}' must be one of {sorted(allowed)}"
-            )
+            raise ValueError(f"covariate spec field 'imputation_policy.{key}' must be one of {sorted(allowed)}")
         normalized_policy[key] = value
     normalized["imputation_policy"] = normalized_policy
 
@@ -134,10 +130,10 @@ def enforce_covariate_spec(
     *,
     declared_dynamic: Sequence[str],
     declared_static: Sequence[str],
-    available_columns: Optional[Sequence[str]],
-    spec_payload: Dict[str, Any],
+    available_columns: Sequence[str] | None,
+    spec_payload: dict[str, Any],
     context: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Validate declared covariates against schema + available columns.
 
     Returns normalized schema snapshot with resolved lists and missing diagnostics.
@@ -165,9 +161,7 @@ def enforce_covariate_spec(
     spec_dynamic = [x["name"] for x in spec["dynamic_covariates"]]
     spec_static = [x["name"] for x in spec["static_covariates"]]
     required = [
-        x["name"]
-        for x in [*spec["dynamic_covariates"], *spec["static_covariates"]]
-        if x.get("required", False)
+        x["name"] for x in [*spec["dynamic_covariates"], *spec["static_covariates"]] if x.get("required", False)
     ]
 
     declared_all = set(dynamic) | set(static)

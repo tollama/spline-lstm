@@ -4,7 +4,6 @@ import csv
 from pathlib import Path
 
 import numpy as np
-
 from src.training.baselines import Phase3BaselineComparisonError
 from src.training.runner import (
     Phase3BaselineComparisonSkippedError,
@@ -20,7 +19,7 @@ def test_predictions_csv_contract_columns_and_rows(tmp_path: Path):
 
     assert out_path.exists()
 
-    with open(out_path, "r", encoding="utf-8", newline="") as f:
+    with open(out_path, encoding="utf-8", newline="") as f:
         rows = list(csv.DictReader(f))
 
     assert rows

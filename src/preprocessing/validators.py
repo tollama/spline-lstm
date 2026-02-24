@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Optional, Sequence
 
 import numpy as np
 import pandas as pd
@@ -32,13 +32,13 @@ def _max_consecutive_true(mask: np.ndarray) -> int:
 
 def validate_time_series_schema(
     df: pd.DataFrame,
-    contract: Optional[DataContract] = None,
+    contract: DataContract | None = None,
     allow_missing_target: bool = True,
     *,
     missing_ratio_max: float = 0.30,
     max_gap: int = 24,
-    lookback: Optional[int] = None,
-    horizon: Optional[int] = None,
+    lookback: int | None = None,
+    horizon: int | None = None,
 ) -> pd.DataFrame:
     """Validate and normalize raw time series dataframe.
 
@@ -91,9 +91,7 @@ def validate_time_series_schema(
     if missing_ratio_max is not None:
         miss_ratio = float(target_missing.mean()) if len(target_missing) else 0.0
         if miss_ratio > float(missing_ratio_max):
-            raise ValueError(
-                f"target missing ratio {miss_ratio:.4f} exceeds limit {missing_ratio_max:.4f}"
-            )
+            raise ValueError(f"target missing ratio {miss_ratio:.4f} exceeds limit {missing_ratio_max:.4f}")
 
     if max_gap is not None and target_missing.any():
         gap = _max_consecutive_true(target_missing)
@@ -109,9 +107,7 @@ def validate_time_series_schema(
     if lookback is not None and horizon is not None:
         min_rows = int(lookback) + int(horizon) + 1
         if len(out) < min_rows:
-            raise ValueError(
-                f"n_rows={len(out)} is too short; require >= lookback+horizon+1 ({min_rows})"
-            )
+            raise ValueError(f"n_rows={len(out)} is too short; require >= lookback+horizon+1 ({min_rows})")
 
     for cov_col in c.covariate_cols:
         out[cov_col] = pd.to_numeric(out[cov_col], errors="coerce")

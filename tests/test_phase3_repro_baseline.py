@@ -25,7 +25,6 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from models.lstm import BACKEND
 
-
 pytestmark = pytest.mark.skipif(
     BACKEND != "tensorflow",
     reason="Phase 3 runner reproducibility test requires TensorFlow backend",
@@ -73,10 +72,7 @@ def _run_phase3_cli(tmp_path: Path, run_id: str, seed: int = 123) -> dict:
     ]
 
     proc = subprocess.run(cmd, cwd=str(root), capture_output=True, text=True)
-    assert proc.returncode == 0, (
-        "Phase3 runner execution failed. "
-        f"STDOUT:\n{proc.stdout}\nSTDERR:\n{proc.stderr}"
-    )
+    assert proc.returncode == 0, f"Phase3 runner execution failed. STDOUT:\n{proc.stdout}\nSTDERR:\n{proc.stderr}"
 
     metrics_path = artifacts_dir / "metrics" / f"{run_id}.json"
     assert metrics_path.exists(), f"metrics file missing: {metrics_path}"
@@ -139,8 +135,7 @@ def test_phase3_reproducibility_and_baseline_vs_model(tmp_path: Path):
     # (환경 차이(TF/cuDNN/OS)로 완전 동일은 강제하지 않음)
     tol = max(0.05, rmse1 * 0.25)
     assert abs(rmse1 - rmse2) <= tol, (
-        "Reproducibility drift exceeded tolerance. "
-        f"rmse1={rmse1:.6f}, rmse2={rmse2:.6f}, tol={tol:.6f}"
+        f"Reproducibility drift exceeded tolerance. rmse1={rmse1:.6f}, rmse2={rmse2:.6f}, tol={tol:.6f}"
     )
 
     # Baseline: persistence(last value of input window) on same synthetic split.
@@ -185,8 +180,7 @@ def test_phase3_metadata_presence_split_config_commit(tmp_path: Path):
             split_key = k
             break
     assert split_key is not None, (
-        "Missing split index metadata. "
-        "Expected one of keys: split_index/split_indices/split/data_split"
+        "Missing split index metadata. Expected one of keys: split_index/split_indices/split/data_split"
     )
 
     # commit hash metadata policy:
@@ -200,8 +194,7 @@ def test_phase3_metadata_presence_split_config_commit(tmp_path: Path):
 
     if commit is None:
         assert source == "unavailable", (
-            "When commit_hash is null, commit_hash_source must be 'unavailable'. "
-            f"source={source!r}"
+            f"When commit_hash is null, commit_hash_source must be 'unavailable'. source={source!r}"
         )
     else:
         commit_str = str(commit)

@@ -6,7 +6,6 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-
 from scripts.health_check import HealthCheckError, run_health_check
 
 
