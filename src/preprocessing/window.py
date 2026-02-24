@@ -41,38 +41,57 @@ def make_windows_multivariate(
     target: np.ndarray,
     lookback: int,
     horizon: int = 1,
-) -> Tuple[np.ndarray, np.ndarray]:
+    future_features: Optional[np.ndarray] = None,
+) -> Tuple[np.ndarray, np.ndarray, Optional[np.ndarray]]:
     """Create windows for multivariate inputs with target-only labels.
 
     Args:
-        features: [time, n_features] matrix (target + covariates).
+        features: [time, n_features] matrix (past-only features).
         target: [time] target series.
+        lookback: window width for past features.
+        horizon: prediction horizon.
+        future_features: [time, n_future_features] matrix (known-future covariates).
 
     Returns:
         X: [batch, lookback, n_features]
         y: [batch, horizon]
+        X_future: [batch, horizon, n_future_features] or None
     """
     f = np.asarray(features, dtype=float)
     t = np.asarray(target, dtype=float).reshape(-1)
-
     if f.ndim != 2:
         raise ValueError(f"features must be 2D [time, n_features], got {f.shape}")
     if len(f) != len(t):
         raise ValueError("features and target must have same time length")
+
+    ff = None
+    if future_features is not None:
+        ff = np.asarray(future_features, dtype=float)
+        if ff.ndim != 2:
+            raise ValueError(f"future_features must be 2D, got {ff.shape}")
+        if len(ff) != len(t):
+            raise ValueError("future_features and target must have same time length")
+
     if np.isnan(f).any() or np.isinf(f).any() or np.isnan(t).any() or np.isinf(t).any():
         raise ValueError("features/target contains NaN/Inf")
+    if ff is not None and (np.isnan(ff).any() or np.isinf(ff).any()):
+        raise ValueError("future_features contains NaN/Inf")
+
     if lookback <= 0 or horizon <= 0:
         raise ValueError("lookback and horizon must be positive")
 
-    n = len(t) - lookback - horizon + 1
+    n = len(f) - lookback - horizon + 1
     if n <= 0:
-        raise ValueError("not enough points for windowing")
+        return np.array([]), np.array([]), None
 
     X = np.zeros((n, lookback, f.shape[1]), dtype=np.float32)
     y = np.zeros((n, horizon), dtype=np.float32)
+    X_fut = None if ff is None else np.zeros((n, horizon, ff.shape[1]), dtype=np.float32)
 
     for i in range(n):
         X[i, :, :] = f[i : i + lookback, :]
         y[i, :] = t[i + lookback : i + lookback + horizon]
+        if X_fut is not None and ff is not None:
+            X_fut[i, :, :] = ff[i + lookback : i + lookback + horizon, :]
 
-    return X, y
+    return X, y, X_fut

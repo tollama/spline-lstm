@@ -134,12 +134,11 @@ def _load_series(args: argparse.Namespace) -> np.ndarray:
     return _generate_synthetic(n_samples=args.synthetic_samples, noise=args.synthetic_noise, seed=args.seed)
 
 
-def _load_training_arrays(args: argparse.Namespace) -> tuple[Optional[np.ndarray], Optional[np.ndarray]]:
+def _load_training_arrays(args: argparse.Namespace) -> tuple[Optional[Any], Optional[np.ndarray]]:
     """Load pre-windowed X/y when available for Phase 5 contract.
-
-    Priority:
-    1) processed.npz keys X/y (contract)
-    2) processed.npz keys X_mv/y_mv (legacy Phase5 proto)
+    Returns:
+        X: List of [X_past, X_future, X_static] or a single numpy array
+        y: target array
     """
     if not args.processed_npz:
         return None, None
@@ -147,24 +146,35 @@ def _load_training_arrays(args: argparse.Namespace) -> tuple[Optional[np.ndarray
     payload = np.load(args.processed_npz)
     _validate_processed_contract_keys(payload)
     _validate_split_contract_if_applicable(args.processed_npz)
-    x = payload["X"] if "X" in payload else payload["X_mv"] if "X_mv" in payload else None
+    
+    x_past = payload["X"] if "X" in payload else payload["X_mv"] if "X_mv" in payload else None
     y = payload["y"] if "y" in payload else payload["y_mv"] if "y_mv" in payload else None
-    if x is None or y is None:
+    
+    if x_past is None or y is None:
         return None, None
 
-    x = np.asarray(x, dtype=np.float32)
+    x_past = np.asarray(x_past, dtype=np.float32)
     y = np.asarray(y, dtype=np.float32)
-    if x.ndim != 3:
-        raise ValueError(f"X must be 3D [batch, lookback, features], got {x.shape}")
-    if y.ndim != 2:
-        raise ValueError(f"y must be 2D [batch, horizon*targets], got {y.shape}")
-    if x.shape[0] != y.shape[0]:
-        raise ValueError(f"X/y batch size mismatch: {x.shape[0]} vs {y.shape[0]}")
-    if x.shape[1] != args.sequence_length:
-        raise ValueError(
-            f"sequence length mismatch: --sequence-length={args.sequence_length} but X lookback={x.shape[1]}"
-        )
-    return x, y
+
+    # Check for future and static
+    x_fut = payload.get("X_fut")
+    x_stat = payload.get("static_features")
+
+    if (x_fut is not None and x_fut.size > 0) or (x_stat is not None and x_stat.size > 0):
+        X = [x_past]
+        if x_fut is not None and x_fut.size > 0:
+            X.append(np.asarray(x_fut, dtype=np.float32))
+        else:
+            X.append(None)
+        
+        if x_stat is not None and x_stat.size > 0:
+            X.append(np.asarray(x_stat, dtype=np.float32))
+        else:
+            X.append(None)
+    else:
+        X = x_past
+
+    return X, y
 
 
 def _load_processed_feature_names(processed_npz: Optional[str]) -> list[str]:
@@ -446,13 +456,19 @@ def _build_callbacks(checkpoint_dir: Path):
     ]
 
 
-def _build_model(args: argparse.Namespace, output_units: int, input_features: int):
+def _build_model(
+    args: argparse.Namespace, 
+    output_units: int, 
+    input_features: int,
+    static_features: int = 0,
+    future_features: int = 0
+):
     model_map = {
         "lstm": LSTMModel,
         "gru": GRUModel,
-        "attention_lstm": AttentionLSTMModel,
     }
-    model_cls = model_map[args.model_type]
+    model_cls = model_map.get(args.model_type, LSTMModel)
+
     return model_cls(
         sequence_length=args.sequence_length,
         hidden_units=args.hidden_units,
@@ -460,6 +476,8 @@ def _build_model(args: argparse.Namespace, output_units: int, input_features: in
         learning_rate=args.learning_rate,
         output_units=output_units,
         input_features=input_features,
+        static_features=static_features,
+        future_features=future_features,
     )
 
 
@@ -545,52 +563,59 @@ def run(args: argparse.Namespace) -> Dict[str, Any]:
 
     if X_direct is not None and y_direct is not None:
         # Contract path: use pre-windowed arrays directly.
-        input_features = int(X_direct.shape[2])
+        if isinstance(X_direct, list):
+            x_main = X_direct[0]
+            input_features = int(x_main.shape[2])
+            future_features = int(X_direct[1].shape[2]) if X_direct[1] is not None else 0
+            static_features = int(X_direct[2].shape[1]) if X_direct[2] is not None else 0
+        else:
+            input_features = int(X_direct.shape[2])
+            future_features = 0
+            static_features = 0
+
         output_units = int(y_direct.shape[1])
-        model = _build_model(args, output_units=output_units, input_features=input_features)
+        model = _build_model(
+            args, 
+            output_units=output_units, 
+            input_features=input_features,
+            static_features=static_features,
+            future_features=future_features
+        )
 
-        n = X_direct.shape[0]
-        train_end = int(n * (1 - args.test_size))
-        trainval_n = train_end
-        val_start = int(trainval_n * (1 - args.val_size))
+        trainer = Trainer(
+            model=model,
+            sequence_length=args.sequence_length,
+            prediction_horizon=args.horizon,
+            save_dir=str(checkpoint_dir),
+        )
 
-        X_train, y_train = X_direct[:val_start], y_direct[:val_start]
-        X_val, y_val = X_direct[val_start:train_end], y_direct[val_start:train_end]
-        X_test, y_test = X_direct[train_end:], y_direct[train_end:]
+        if args.cv_splits > 0:
+            logger.info(f"Running {args.cv_splits}-fold cross-validation...")
+            cv_results = trainer.cross_validate(
+                X=X_direct,
+                y=y_direct,
+                n_splits=args.cv_splits,
+                epochs=args.epochs,
+                batch_size=args.batch_size,
+                verbose=args.verbose
+            )
+            # Use CV metrics as primary results context if needed
+            logger.info(f"CV Avg RMSE: {cv_results['avg_metrics']['rmse']:.4f}")
 
-        if len(X_train) == 0 or len(X_val) == 0 or len(X_test) == 0:
-            raise ValueError("Insufficient X/y windows after split; adjust test_size/val_size")
-
-        split_indices = {
-            "n_total": int(n),
-            "train": {"start": 0, "end": int(val_start)},
-            "val": {"start": int(val_start), "end": int(train_end)},
-            "test": {"start": int(train_end), "end": int(n)},
-            "ratios": {"test_size": float(args.test_size), "val_size": float(args.val_size)},
-            "source": "processed_xy",
-        }
-
-        history = model.fit_model(
-            X_train,
-            y_train,
+        results = trainer.train(
+            X=X_direct,
+            y=y_direct,
             epochs=args.epochs,
             batch_size=args.batch_size,
-            validation_data=(X_val, y_val),
-            early_stopping=args.early_stopping,
-            shuffle=False,
+            test_size=args.test_size,
+            val_size=args.val_size,
             verbose=args.verbose,
             extra_callbacks=callbacks,
         )
-
-        y_pred = model.predict(X_test)
-        metrics = _compute_metrics(y_test, y_pred)
-        results = {
-            "metrics": metrics,
-            "history": history,
-            "start_time": run_start_time,
-            "end_time": datetime.now().isoformat(),
-            "split_indices": split_indices,
-        }
+        split_indices = results.get("split_indices", {})
+        y_pred = results["y_pred"]
+        y_test = results["y_test"]
+        X_test = results["X_test"]
 
         # Only compute simple baselines for classic univariate contract.
         if args.feature_mode == "univariate":
@@ -863,8 +888,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--feature-mode", type=str, choices=["univariate", "multivariate"], default="univariate")
     p.add_argument("--target-cols", type=str, default="target")
     p.add_argument("--dynamic-covariates", type=str, default="")
+    p.add_argument("--future-covariates", type=str, default="")
     p.add_argument("--static-covariates", type=str, default="")
     p.add_argument("--covariate-spec", type=str, default=None)
+    p.add_argument("--cv-splits", type=int, default=0, help="Number of splits for time-series cross-validation")
     p.add_argument("--export-formats", type=str, default="none")
 
     p.add_argument("--epochs", type=int, default=10)

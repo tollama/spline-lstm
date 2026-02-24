@@ -39,15 +39,15 @@ Primary goals:
 
 ### A.3 Milestones
 
-- M1: Data contract draft + fixtures + parser validation
-- M2: Trainer/runner integration + reproducibility checks
-- M3: Inference API payload validation + regression suite
+- M1: Data contract draft + fixtures + parser validation [✅]
+- M2: Trainer/runner integration + reproducibility checks [✅]
+- M3: Inference API payload validation + regression suite [✅]
 
 ### A.4 Acceptance criteria
 
-- Same run with same seed + same covariate payload produces reproducible metrics within tolerance.
-- Contract tests cover missing/extra/reordered covariates.
-- Model registry metadata contains covariate lineage for audit.
+- [x] Same run with same seed + same covariate payload produces reproducible metrics within tolerance.
+- [x] Contract tests cover missing/extra/reordered covariates.
+- [x] Model registry metadata contains covariate lineage for audit.
 
 ---
 

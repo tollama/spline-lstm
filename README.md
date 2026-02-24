@@ -11,9 +11,9 @@ Current implementation supports univariate baseline flow (Phase 1–4) and Phase
 
 - **Spline preprocessing**: schema validation, missing interpolation, smoothing, train-fit scaling, windowing
 - **Training runner**: one-command train/eval/infer with run-scoped artifacts
-- **Model variants**: LSTM, GRU, Attention-LSTM
-- **Evaluation metrics**: MAE, MSE, RMSE, robust MAPE, R2
 - **PoC multivariate path**: covariate-enabled preprocessing arrays (`X_mv`, `y_mv`)
+- **Enhanced Covariate Support**: End-to-end support for static and future covariates
+- **Time-Series Cross-Validation**: Robust evaluation with rolling-window CV
 
 ## Current Status (Phase Mapping)
 
@@ -23,7 +23,8 @@ Current implementation supports univariate baseline flow (Phase 1–4) and Phase
 | Phase 2 | ✅ | Trainer/core model flow and artifact persistence (`src.training.trainer`) |
 | Phase 3 | ✅ | Unified CLI runner (`src.training.runner`) for train/eval/infer |
 | Phase 4 | ✅ | E2E/ops scripts + smoke gate + run_id mismatch blocking (`scripts/run_e2e.sh`, `scripts/smoke_test.sh`) |
-| Phase 5 (PoC) | ✅ (PoC 범위) | GRU comparison (`scripts/run_compare.sh`) + covariate/multivariate preprocessing contract |
+| Phase 5 (PoC) | ✅ | GRU comparison (`scripts/run_compare.sh`) + covariate/multivariate preprocessing contract |
+| Phase 6 (Draft) | [/] | Covariates (Static/Future) [✅], CV [✅], User-adjusted inputs [Draft], Skills [Draft] |
 
 ## Project Structure
 
@@ -44,7 +45,8 @@ spline-lstm/
 ## Environment Notes
 
 - Recommended Python: **3.10 ~ 3.11**
-- TensorFlow dependency is constrained to `>=2.14,<2.17` in `requirements.txt` for runtime stability.
+- **TensorFlow**: >=2.14,<2.17 (required)
+- **Note**: The project now requires TensorFlow exclusively; the previous PyTorch fallback has been removed.
 - If you run on Python builds linked with LibreSSL (often older macOS system Python), you may see `urllib3` `NotOpenSSLWarning`. In that case:
   - use `urllib3<2` (already constrained for older Python in `requirements.txt`), or
   - switch to an OpenSSL-backed Python runtime.

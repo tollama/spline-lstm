@@ -26,11 +26,8 @@ make quick-gate
 # explicit run id / faster epochs
 RUN_ID=ops-quick-001 EPOCHS=1 make smoke-gate
 
-# full regression with optional extra args
-PYTEST_ARGS="-k phase5 -x" make full-regression
-
-# release dry run
-RUN_ID_PREFIX=rc EPOCHS=1 make pre-release-verify
+# covariates and cross-validation (Phase 6 Core)
+python3 src/training/runner.py --synthetic --future-covariates temp,promo --cv-splits 3 --epochs 1
 ```
 
 ## Troubleshooting pointers

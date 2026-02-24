@@ -75,17 +75,23 @@ class Trainer:
 
     def train_test_split(
         self,
-        X: np.ndarray,
+        X: Any,
         y: np.ndarray,
         test_size: float = 0.2
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    ) -> Tuple[Any, Any, np.ndarray, np.ndarray]:
         """Split data into train and test sets (chronological)."""
-        split_idx = int(len(X) * (1 - test_size))
+        n_samples = len(y)
+        split_idx = int(n_samples * (1 - test_size))
 
-        X_train, X_test = X[:split_idx], X[split_idx:]
+        if isinstance(X, list):
+            X_train = [x[:split_idx] for x in X]
+            X_test = [x[split_idx:] for x in X]
+        else:
+            X_train, X_test = X[:split_idx], X[split_idx:]
+            
         y_train, y_test = y[:split_idx], y[split_idx:]
 
-        logger.info(f"Train: {len(X_train)}, Test: {len(X_test)}")
+        logger.info(f"Train: {len(y_train)}, Test: {len(y_test)}")
         return X_train, X_test, y_train, y_test
 
     def split_series(
@@ -194,7 +200,9 @@ class Trainer:
 
     def train(
         self,
-        data: np.ndarray,
+        data: Optional[np.ndarray] = None,
+        X: Optional[Any] = None,
+        y: Optional[np.ndarray] = None,
         epochs: int = 100,
         batch_size: int = 32,
         test_size: float = 0.2,
@@ -207,15 +215,42 @@ class Trainer:
         extra_metric_fns: Optional[Dict[str, Callable[[np.ndarray, np.ndarray], float]]] = None
     ) -> Dict[str, Any]:
         """Full training pipeline with leakage-safe split/normalization."""
-        if data is None:
-            raise ValueError("data must not be None")
-        data = np.asarray(data)
-        if data.size == 0:
-            raise ValueError("data must not be empty")
-        if not np.isfinite(data).all():
-            raise ValueError("data contains NaN/Inf values")
+        if X is not None and y is not None:
+            # Use provided windows directly
+            X_train, X_test, y_train, y_test = self.train_test_split(X, y, test_size=test_size)
+            # Use a sub-split for validation
+            split_idx = int(len(X_train) * (1 - val_size))
+            if isinstance(X_train, list):
+                X_tr = [x[:split_idx] for x in X_train]
+                X_v = [x[split_idx:] for x in X_train]
+            else:
+                X_tr = X_train[:split_idx]
+                X_v = X_train[split_idx:]
+            
+            y_tr, y_v = y_train[:split_idx], y_train[split_idx:]
+            
+            self.split_indices = {
+                "train": {"start": 0, "end": split_idx},
+                "val": {"start": split_idx, "end": len(X_train)},
+                "test": {"start": len(X_train), "end": len(X_train) + len(X_test)},
+            }
+        else:
+            if data is None:
+                raise ValueError("Either 'data' or both 'X' and 'y' must be provided")
+            data = np.asarray(data)
+            self._validate_split_params(test_size=test_size, val_size=val_size)
+            train_raw, val_raw, test_raw = self.split_series(data, test_size=test_size, val_size=val_size)
 
-        self._validate_split_params(test_size=test_size, val_size=val_size)
+            if normalize:
+                norm_params = self.fit_normalizer(train_raw, method=normalize_method)
+                train_raw = self.normalize(train_raw, norm_params)
+                val_raw = self.normalize(val_raw, norm_params)
+                test_raw = self.normalize(test_raw, norm_params)
+                self.norm_params = norm_params
+
+            X_tr, y_tr = self.create_sequences(train_raw)
+            X_v, y_v = self.create_sequences(val_raw)
+            X_test, y_test = self.create_sequences(test_raw)
 
         results = {
             'start_time': datetime.now().isoformat(),
@@ -230,32 +265,18 @@ class Trainer:
             }
         }
 
-        train_raw, val_raw, test_raw = self.split_series(data, test_size=test_size, val_size=val_size)
-
-        if normalize:
-            norm_params = self.fit_normalizer(train_raw, method=normalize_method)
-            train_raw = self.normalize(train_raw, norm_params)
-            val_raw = self.normalize(val_raw, norm_params)
-            test_raw = self.normalize(test_raw, norm_params)
-            results['normalization'] = norm_params
-            self.norm_params = norm_params
-
-        X_train, y_train = self.create_sequences(train_raw)
-        X_val, y_val = self.create_sequences(val_raw)
-        X_test, y_test = self.create_sequences(test_raw)
-
-        if len(X_train) == 0 or len(X_val) == 0 or len(X_test) == 0:
+        if len(X_tr) == 0 or len(X_v) == 0 or len(X_test) == 0:
             raise ValueError(
                 "Insufficient data after split to create train/val/test sequences. "
                 "Adjust sequence_length, prediction_horizon, test_size, or val_size."
             )
 
         history = self.model.fit_model(
-            X_train,
-            y_train,
+            X_tr,
+            y_tr,
             epochs=epochs,
             batch_size=batch_size,
-            validation_data=(X_val, y_val),
+            validation_data=(X_v, y_v),
             early_stopping=early_stopping,
             shuffle=False,
             verbose=verbose,
@@ -279,9 +300,60 @@ class Trainer:
         self.y_test = y_test
         self.y_pred = y_pred
 
-        logger.info(f"Training complete. RMSE: {metrics['rmse']:.4f}, R²: {metrics['r2']:.4f}")
+        logger.info(f"Training complete. RMSE: {metrics['rmse']:.4f}")
 
         return results
+
+    def cross_validate(
+        self,
+        X: Any,
+        y: np.ndarray,
+        n_splits: int = 5,
+        epochs: int = 50,
+        batch_size: int = 32,
+        verbose: int = 0
+    ) -> Dict[str, Any]:
+        """Time-series cross-validation."""
+        n_samples = len(y)
+        indices = np.arange(n_samples)
+        
+        # Simple rolling window / expanding window approach
+        fold_size = n_samples // (n_splits + 1)
+        all_metrics = []
+
+        for i in range(n_splits):
+            train_idx = indices[: (i + 1) * fold_size]
+            test_idx = indices[(i + 1) * fold_size : (i + 2) * fold_size]
+            
+            if len(test_idx) == 0:
+                break
+                
+            if isinstance(X, list):
+                X_tr = [x[train_idx] for x in X]
+                X_te = [x[test_idx] for x in X]
+            else:
+                X_tr = X[train_idx]
+                X_te = X[test_idx]
+            
+            y_tr, y_te = y[train_idx], y[test_idx]
+
+            # Re-build/reset model if possible? For now, assume model is clean or re-trains
+            self.model.fit_model(X_tr, y_tr, epochs=epochs, batch_size=batch_size, verbose=verbose, early_stopping=False)
+            y_pred = self.model.predict(X_te)
+            metrics = self.compute_metrics(y_te, y_pred)
+            all_metrics.append(metrics)
+            logger.info(f"Fold {i+1}/{n_splits} - RMSE: {metrics['rmse']:.4f}")
+
+        # Aggregate metrics
+        avg_metrics = {}
+        for key in all_metrics[0].keys():
+            avg_metrics[key] = float(np.mean([m[key] for m in all_metrics]))
+            avg_metrics[f"{key}_std"] = float(np.std([m[key] for m in all_metrics]))
+
+        return {
+            "avg_metrics": avg_metrics,
+            "folds": all_metrics
+        }
 
     def save_checkpoint(self, name: str = None) -> str:
         """Save model checkpoint."""

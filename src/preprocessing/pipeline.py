@@ -28,7 +28,9 @@ class PreprocessingConfig:
     scaling: str = "standard"
     timestamp_col: str = "timestamp"
     target_col: str = "target"
-    covariate_cols: Sequence[str] = ()
+    covariate_cols: Sequence[str] = ()  # Dynamic/Past covariates
+    static_covariate_cols: Sequence[str] = ()
+    future_covariate_cols: Sequence[str] = ()
     covariate_spec: Optional[str] = None
 
 
@@ -105,10 +107,13 @@ def run_preprocessing_pipeline(
         raw = pd.read_csv(in_path)
 
     covariate_cols = _normalize_covariate_cols(config.covariate_cols)
+    static_cols = _normalize_covariate_cols(config.static_covariate_cols)
+    future_cols = _normalize_covariate_cols(config.future_covariate_cols)
+
     covariate_spec_raw = load_covariate_spec(config.covariate_spec)
     covariate_contract = enforce_covariate_spec(
-        declared_dynamic=covariate_cols,
-        declared_static=[],
+        declared_dynamic=list(set(covariate_cols) | set(future_cols)),
+        declared_static=static_cols,
         available_columns=raw.columns,
         spec_payload=covariate_spec_raw,
         context="preprocessing",
@@ -120,7 +125,7 @@ def run_preprocessing_pipeline(
         contract=DataContract(
             timestamp_col=config.timestamp_col,
             target_col=config.target_col,
-            covariate_cols=tuple(covariate_cols),
+            covariate_cols=tuple(set(covariate_cols) | set(static_cols) | set(future_cols)),
         ),
         allow_missing_target=True,
         lookback=config.lookback,
@@ -145,7 +150,9 @@ def run_preprocessing_pipeline(
     covariates_scaled = None
     covariate_scaler = None
     features_scaled = None
-    X_mv, y_mv = None, None
+    future_features_scaled = None
+    static_features = None
+    X_mv, y_mv, X_fut = None, None, None
     feature_names = [config.target_col]
     target_indices = [0]
 
@@ -164,11 +171,24 @@ def run_preprocessing_pipeline(
         features_scaled = np.concatenate([series_scaled.reshape(-1, 1), covariates_scaled], axis=1)
         feature_names = [config.target_col, *covariate_cols]
 
-        X_mv, y_mv = make_windows_multivariate(
+        # Handle Future Covariates if any
+        if future_cols:
+            f_cov_df = validated[future_cols].copy().ffill().bfill().fillna(0.0)
+            f_cov_raw = f_cov_df.to_numpy(dtype=float)
+            f_cov_scaled, _ = _scale_covariates_train_only(f_cov_raw, train_end=train_end, method=config.scaling)
+            future_features_scaled = f_cov_scaled
+
+        # Handle Static Covariates if any
+        if static_cols:
+            s_cov_df = validated[static_cols].copy().ffill().bfill().fillna(0.0)
+            static_features = s_cov_df.to_numpy(dtype=float)
+
+        X_mv, y_mv, X_fut = make_windows_multivariate(
             features=features_scaled,
             target=series_scaled,
             lookback=config.lookback,
             horizon=config.horizon,
+            future_features=future_features_scaled,
         )
 
     base = Path(artifacts_dir)
@@ -201,6 +221,8 @@ def run_preprocessing_pipeline(
                 "features_scaled": features_scaled,
                 "X_mv": X_mv,
                 "y_mv": y_mv,
+                "X_fut": X_fut if X_fut is not None else np.array([]),
+                "static_features": static_features if static_features is not None else np.array([]),
             }
         )
 
@@ -222,6 +244,8 @@ def run_preprocessing_pipeline(
         "multivariate": {
             "enabled": bool(covariate_cols),
             "covariate_cols": list(covariate_cols),
+            "static_covariate_cols": list(static_cols),
+            "future_covariate_cols": list(future_cols),
             "covariate_scaler": {
                 "method": covariate_scaler["method"],
                 "mean": covariate_scaler["mean"].tolist(),
@@ -246,10 +270,14 @@ def run_preprocessing_pipeline(
                 "X_shape": list(X.shape),
                 "y_shape": list(y.shape),
                 "covariate_cols": list(covariate_cols),
+                "static_covariate_cols": list(static_cols),
+                "future_covariate_cols": list(future_cols),
                 "feature_names": feature_names,
                 "target_indices": target_indices,
                 "X_mv_shape": list(X_mv.shape) if X_mv is not None else None,
                 "y_mv_shape": list(y_mv.shape) if y_mv is not None else None,
+                "X_fut_shape": list(X_fut.shape) if X_fut is not None else None,
+                "static_features_shape": list(static_features.shape) if static_features is not None else None,
                 "feature_schema": covariate_contract,
             },
             f,

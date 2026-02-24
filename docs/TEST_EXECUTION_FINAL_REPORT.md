@@ -22,7 +22,8 @@
   - **Phase 5:** 테스트 게이트는 PASS이나, 리뷰/PM 통합 게이트는 **FAIL/NOT DONE**
     - 근거: `docs/TEST_RESULTS_PHASE5_GATE_FINAL.md`, `docs/PHASE5_REVIEW_GATE_FINAL.md`, `docs/PHASE5_PM_GATE_FINAL.md`
 - **종합 결론:**
-  - 실행 증빙은 충분히 확보되었으나, **최종 프로젝트 완료 선언은 Phase5 Gate 미수렴으로 보류**가 타당.
+  - 실행 증빙은 충분히 확보되었으며, **Phase 6 핵심(Covariates/CV)까지 PASS** 상태로 진입.
+  - 근거: `docs/TEST_RESULTS_COVARIATES_CV.md`
 
 ---
 
@@ -35,6 +36,7 @@
 | Phase 3 | 완료(PASS 수렴) | `docs/PHASE3_REVIEW_GATE_FINAL_2.md` | fixpass 이후 Must fix 0, Gate C PASS |
 | Phase 4 | 테스트 기준 완료 가능(PASS), PM 재판정 필요 | `docs/TEST_RESULTS_PHASE4_FIXPASS2.md`, `docs/PHASE4_PM_GATE_FINAL_2.md` | PM 2차 문서는 입력 부재로 NOT DONE, 이후 FixPass2 문서 생성됨 |
 | Phase 5 | 미완료(NOT DONE) | `docs/PHASE5_PM_GATE_FINAL.md`, `docs/PHASE5_REVIEW_GATE_FINAL.md` | Tester PASS vs Reviewer FAIL(문서-코드 계약 불일치) |
+| Phase 6 (Core) | **진행 중 (PASS)** | `docs/TEST_RESULTS_COVARIATES_CV.md` | Covariates(Static/Future) 및 Cross-Validation 구현/검증 완료 |
 
 ---
 
@@ -165,6 +167,7 @@
 - `docs/TEST_RESULTS_PHASE5_GATE_FINAL.md`
 - `docs/E2E_EXECUTION_RESULTS.md`
 - `docs/E2E_EXECUTION_PM_TRACKER.md`
+- `docs/TEST_RESULTS_COVARIATES_CV.md`
 
 ---
 

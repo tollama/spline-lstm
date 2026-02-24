@@ -5,8 +5,8 @@ const browser = await chromium.launch({ headless: true });
 const page = await browser.newPage();
 const out = [];
 
-function ok(step, detail='') { out.push({step, status:'PASS', detail}); }
-function fail(step, err) { out.push({step, status:'FAIL', detail:String(err)}); }
+function ok(step, detail = '') { out.push({ step, status: 'PASS', detail }); }
+function fail(step, err) { out.push({ step, status: 'FAIL', detail: String(err) }); }
 
 try {
   await page.goto(base, { waitUntil: 'networkidle', timeout: 20000 });
