@@ -1,9 +1,0 @@
-/Users/ychoi/Library/Python/3.9/lib/python/site-packages/urllib3/__init__.py:35: NotOpenSSLWarning: urllib3 v2 only supports OpenSSL 1.1.1+, currently the 'ssl' module is compiled with 'LibreSSL 2.8.3'. See: https://github.com/urllib3/urllib3/issues/3020
-  warnings.warn(
-/Users/ychoi/spline-lstm/src/preprocessing/smoke.py:20: FutureWarning: 'H' is deprecated and will be removed in a future version, please use 'h' instead.
-  t = pd.date_range("2025-01-01", periods=n, freq="H")
-[OK] preprocessing smoke completed
-- processed: artifacts/processed/phase4-smoke-20260220-025722/processed.npz
-- preprocessor: artifacts/models/phase4-smoke-20260220-025722/preprocessor.pkl
-- meta: artifacts/processed/phase4-smoke-20260220-025722/meta.json
-- split_contract: artifacts/processed/phase4-smoke-20260220-025722/split_contract.json

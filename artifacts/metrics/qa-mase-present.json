@@ -1,6 +1,0 @@
-{
-  "run_id": "qa-mase-present",
-  "metrics": {"rmse": 0.12, "mae": 0.08, "mape": 4.2, "mase": 0.73},
-  "config": {"model_type": "lstm", "feature_mode": "multivariate"},
-  "artifacts": {"metrics_json": "artifacts/metrics/qa-mase-present.json", "report_md": "artifacts/reports/qa-mase-present.md"}
-}

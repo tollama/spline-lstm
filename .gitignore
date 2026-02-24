@@ -74,3 +74,9 @@ coverage.xml
 *.log
 *.bak
 *.tmp
+
+# ==========================
+# Backend data
+# ==========================
+backend/data/jobs_store.json
+backend/data/jobs_store.json.lock
