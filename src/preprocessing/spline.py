@@ -19,7 +19,38 @@ logger = logging.getLogger(__name__)
 
 
 class SplinePreprocessor:
-    """B-Spline based preprocessor for time series smoothing and interpolation."""
+    """B-Spline based preprocessor for time series smoothing and interpolation.
+
+    Parameters
+    ----------
+    degree : int
+        Spline polynomial degree (1–3).  Automatically reduced when there is
+        insufficient data.
+    smoothing_factor : float
+        Controls how closely the spline follows the data points.  Must be ≥ 0.
+
+        Internally this maps to the ``s`` parameter of
+        :class:`scipy.interpolate.UnivariateSpline` as::
+
+            s = smoothing_factor * n_valid_points
+
+        where ``n_valid_points`` is the number of non-NaN data points.
+
+        Practical guide (assuming moderate-variance, pre-smoothed data):
+
+        - ``0.0`` → interpolating spline (passes through every point, no smoothing).
+        - ``0.5`` → moderate noise reduction while preserving trend & seasonality (default).
+        - ``1.0`` → heavy smoothing; retains only the broad trend.
+        - ``> 1.0`` → aggressive smoothing; use with care.
+
+        .. note::
+            Because ``s`` scales with ``n``, larger datasets receive
+            proportionally more smoothing for the same ``smoothing_factor``.
+            If your series has unusually high amplitude variance you may need to
+            lower this value, and vice-versa.
+    num_knots : int
+        Unused (reserved for future knot-placement strategies).
+    """
 
     def __init__(
         self,
@@ -27,6 +58,8 @@ class SplinePreprocessor:
         smoothing_factor: float = 0.5,
         num_knots: int = 10,
     ):
+        if smoothing_factor < 0:
+            raise ValueError(f"smoothing_factor must be >= 0, got {smoothing_factor}")
         self.degree = degree
         self.smoothing_factor = smoothing_factor
         self.num_knots = num_knots
@@ -167,10 +200,22 @@ class SplinePreprocessor:
         return np.asarray(savgol_filter(y, window, polyorder), dtype=float)
 
     def extract_features(self, y: np.ndarray) -> dict:
-        """Extract simple features from spline-fitted series."""
+        """Extract simple features from a spline fitted to *y*.
+
+        This method does **not** modify the preprocessor's internal state.
+        A temporary ``SplinePreprocessor`` is used for the transient fit so
+        that any previously fitted spline is preserved.
+        """
         y = self._to_1d_float_array(y, "y")
         x = np.arange(len(y), dtype=float)
-        self.fit(x, y)
+
+        # Use a throw-away instance to avoid overwriting the fitted spline.
+        tmp = SplinePreprocessor(
+            degree=self.degree,
+            smoothing_factor=self.smoothing_factor,
+            num_knots=self.num_knots,
+        )
+        tmp.fit(x, y)
 
         features = {
             "mean": float(np.mean(y)),
@@ -179,8 +224,8 @@ class SplinePreprocessor:
             "max": float(np.max(y)),
         }
 
-        if hasattr(self._spline, "derivative"):
-            dy = self._spline.derivative(1)(x)
+        if hasattr(tmp._spline, "derivative"):
+            dy = tmp._spline.derivative(1)(x)
             features["trend_mean"] = float(np.mean(dy))
             features["trend_std"] = float(np.std(dy))
 

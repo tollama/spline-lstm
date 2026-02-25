@@ -193,12 +193,29 @@ class Trainer:
         val_size: float = 0.2,
         normalize: bool = True,
         normalize_method: str = "minmax",
+        denormalize_metrics: bool = False,
         early_stopping: bool = True,
         verbose: int = 1,
         extra_callbacks: list[Any] | None = None,
         extra_metric_fns: dict[str, Callable[[np.ndarray, np.ndarray], float]] | None = None,
     ) -> dict[str, Any]:
-        """Full training pipeline with leakage-safe split/normalization."""
+        """Full training pipeline with leakage-safe split/normalization.
+
+        Parameters
+        ----------
+        denormalize_metrics : bool
+            When ``True`` and ``normalize=True``, the test predictions and
+            ground-truth labels are inverse-transformed back to the original
+            scale before computing evaluation metrics.  This makes MAE, RMSE,
+            etc. interpretable in the original data units rather than the
+            normalised space.
+
+            Defaults to ``False`` to preserve backward-compatibility.  When
+            enabled, callers that also pass normalised arrays to
+            :func:`build_baseline_report` must ensure the baseline is computed
+            in the same scale (use ``results["y_test_original_scale"]`` and
+            ``results["y_pred_original_scale"]``).
+        """
         X_tr: Any
         X_v: Any
         X_test: Any
@@ -275,11 +292,23 @@ class Trainer:
         )
 
         y_pred = self.model.predict(X_test)
-        metrics = self.compute_metrics(y_test, y_pred)
+
+        # Optionally inverse-transform predictions and ground truth so that
+        # metrics are expressed in the original data units.
+        norm_params_for_denorm: dict | None = getattr(self, "norm_params", None)
+        if denormalize_metrics and normalize and norm_params_for_denorm is not None:
+            y_test_eval = self.denormalize(y_test, norm_params_for_denorm)
+            y_pred_eval = self.denormalize(y_pred, norm_params_for_denorm)
+            logger.info("Metrics computed in original (denormalised) scale.")
+        else:
+            y_test_eval = y_test
+            y_pred_eval = y_pred
+
+        metrics = self.compute_metrics(y_test_eval, y_pred_eval)
 
         if extra_metric_fns:
             for name, fn in extra_metric_fns.items():
-                metrics[name] = float(fn(y_test, y_pred))
+                metrics[name] = float(fn(y_test_eval, y_pred_eval))
 
         results["end_time"] = datetime.now().isoformat()
         results["history"] = history
@@ -288,6 +317,8 @@ class Trainer:
         results["X_test"] = X_test
         results["y_test"] = y_test
         results["y_pred"] = y_pred
+        results["y_test_original_scale"] = y_test_eval
+        results["y_pred_original_scale"] = y_pred_eval
 
         self.metrics = metrics
         self.X_test = X_test
@@ -301,7 +332,11 @@ class Trainer:
     def cross_validate(
         self, X: Any, y: np.ndarray, n_splits: int = 5, epochs: int = 50, batch_size: int = 32, verbose: int = 0
     ) -> dict[str, Any]:
-        """Time-series cross-validation."""
+        """Time-series cross-validation (expanding window).
+
+        The model is rebuilt from scratch before each fold so that metrics
+        reflect independent training runs rather than accumulated fine-tuning.
+        """
         n_samples = len(y)
         indices = np.arange(n_samples)
 
@@ -325,7 +360,9 @@ class Trainer:
 
             y_tr, y_te = y[train_idx], y[test_idx]
 
-            # Re-build/reset model if possible? For now, assume model is clean or re-trains
+            # Rebuild the model from scratch for each fold so that weights from
+            # previous folds do not bleed into the current fold's evaluation.
+            self.model.build()
             self.model.fit_model(
                 X_tr, y_tr, epochs=epochs, batch_size=batch_size, verbose=verbose, early_stopping=False
             )

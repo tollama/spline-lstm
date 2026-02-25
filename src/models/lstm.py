@@ -80,6 +80,9 @@ class LSTMModel:
         Number of future‑known covariates (0 if none).
     """
 
+    # Subclasses can override this to give the Keras model a distinct name.
+    _model_name: str = "lstm_forecaster"
+
     def __init__(
         self,
         sequence_length: int = 24,
@@ -200,14 +203,15 @@ class LSTMModel:
             )
         x = layers.Concatenate(name="feature_concat")(concat_tensors) if len(concat_tensors) > 1 else concat_tensors[0]
         output = layers.Dense(self.output_units, name="output")(x)
-        self.model = Model(inputs=model_inputs, outputs=output, name="lstm_forecaster")
+        self.model = Model(inputs=model_inputs, outputs=output, name=self._model_name)
         self.model.compile(
             optimizer=keras.optimizers.Adam(learning_rate=self.learning_rate),
             loss="mse",
             metrics=["mae"],
         )
         logger.info(
-            "Built LSTM model – past=%d, static=%d, future=%d",
+            "Built %s – past=%d, static=%d, future=%d",
+            self._model_name,
             self.input_features,
             self.static_features,
             self.future_features,
@@ -293,7 +297,13 @@ class LSTMModel:
 # Sub‑classes with specialised backbones
 # ---------------------------------------------------------------------------
 class BidirectionalLSTMModel(LSTMModel):
-    """Bidirectional LSTM variant – shares the same public API as ``LSTMModel``."""
+    """Bidirectional LSTM variant – shares the same public API as ``LSTMModel``.
+
+    Only ``_build_lstm_stack`` is overridden; the full ``build()`` logic
+    (covariate handling, compilation) is inherited from ``LSTMModel``.
+    """
+
+    _model_name = "bilstm_forecaster"
 
     def _build_lstm_stack(self, inputs: list[tf.keras.layers.Layer]) -> tf.keras.layers.Layer:
         x = inputs[0]
@@ -303,6 +313,70 @@ class BidirectionalLSTMModel(LSTMModel):
             if self.dropout > 0:
                 x = layers.Dropout(self.dropout, name=f"dropout_{i + 1}")(x)
         return x
+
+
+class GRUModel(LSTMModel):
+    """GRU variant – retains the same external interface as ``LSTMModel``.
+
+    Only ``_build_lstm_stack`` is overridden; the full ``build()`` logic
+    (covariate handling, compilation) is inherited from ``LSTMModel``.
+    """
+
+    _model_name = "gru_forecaster"
+
+    def _build_lstm_stack(self, inputs: list[tf.keras.layers.Layer]) -> tf.keras.layers.Layer:
+        x = inputs[0]
+        for i, units in enumerate(self.hidden_units):
+            return_seq = i < len(self.hidden_units) - 1
+            x = layers.GRU(units, return_sequences=return_seq, name=f"gru_{i + 1}")(x)
+            if self.dropout > 0:
+                x = layers.Dropout(self.dropout, name=f"dropout_{i + 1}")(x)
+        return x
+
+
+class _ReduceSum(layers.Layer):
+    """Serialisable replacement for ``Lambda(lambda v: tf.reduce_sum(v, axis=1))``.
+
+    Using a ``Lambda`` layer with a Python closure referencing ``tf`` prevents
+    the model from being saved/loaded correctly with ``model.save()``.  This
+    thin wrapper is fully serialisable and produces identical behaviour.
+    """
+
+    def call(self, inputs: tf.Tensor) -> tf.Tensor:  # type: ignore[override]
+        return tf.reduce_sum(inputs, axis=1)
+
+    def get_config(self) -> dict:
+        return super().get_config()
+
+
+class AttentionLSTMModel(LSTMModel):
+    """LSTM with a simple attention mechanism.
+
+    The attention block is applied after the final LSTM layer and before the
+    dense output.  Static and future covariates are supported via the same
+    concatenation strategy used in ``LSTMModel``.
+    """
+
+    def __init__(self, attention_units: int = 64, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self.attention_units = attention_units
+
+    def _build_lstm_stack(self, inputs: list[tf.keras.layers.Layer]) -> tf.keras.layers.Layer:
+        """LSTM stack that keeps sequences for the attention layer."""
+        x = inputs[0]
+        for i, units in enumerate(self.hidden_units[:-1]):
+            x = layers.LSTM(units, return_sequences=True, name=f"lstm_{i + 1}")(x)
+            if self.dropout > 0:
+                x = layers.Dropout(self.dropout, name=f"dropout_{i + 1}")(x)
+        # Final LSTM must return sequences so the attention layer can score each step.
+        x = layers.LSTM(self.hidden_units[-1], return_sequences=True, name="lstm_last")(x)
+        # Attention mechanism
+        att_hidden = layers.Dense(self.attention_units, activation="tanh", name="attention_hidden")(x)
+        att_scores = layers.Dense(1, name="attention_scores")(att_hidden)
+        att_weights = layers.Softmax(axis=1, name="attention_weights")(att_scores)
+        context = layers.Multiply(name="attention_weighted")([x, att_weights])
+        context = _ReduceSum(name="attention_context")(context)
+        return context
 
     def build(self) -> None:
         past_input = layers.Input(shape=(self.sequence_length, self.input_features), name="past_input")
@@ -322,83 +396,15 @@ class BidirectionalLSTMModel(LSTMModel):
             )
         x = layers.Concatenate(name="feature_concat")(concat_tensors) if len(concat_tensors) > 1 else concat_tensors[0]
         output = layers.Dense(self.output_units, name="output")(x)
-        self.model = Model(inputs=model_inputs, outputs=output, name="bilstm_forecaster")
+        self.model = Model(inputs=model_inputs, outputs=output, name="attention_lstm_forecaster")
         self.model.compile(
             optimizer=keras.optimizers.Adam(learning_rate=self.learning_rate),
             loss="mse",
             metrics=["mae"],
         )
-        logger.info("Built Bidirectional LSTM model with %s", self.hidden_units)
-
-
-class GRUModel(LSTMModel):
-    """GRU variant – retains the same external interface as ``LSTMModel``."""
-
-    def _build_lstm_stack(self, inputs: list[tf.keras.layers.Layer]) -> tf.keras.layers.Layer:
-        x = inputs[0]
-        for i, units in enumerate(self.hidden_units):
-            return_seq = i < len(self.hidden_units) - 1
-            x = layers.GRU(units, return_sequences=return_seq, name=f"gru_{i + 1}")(x)
-            if self.dropout > 0:
-                x = layers.Dropout(self.dropout, name=f"dropout_{i + 1}")(x)
-        return x
-
-    def build(self) -> None:
-        past_input = layers.Input(shape=(self.sequence_length, self.input_features), name="past_input")
-        model_inputs: list[tf.keras.layers.Layer] = [past_input]
-        concat_tensors: list[tf.keras.layers.Layer] = []
-        gru_out = self._build_lstm_stack([past_input])
-        concat_tensors.append(gru_out)
-        if self.future_features > 0:
-            future_input = layers.Input(shape=(self.output_units, self.future_features), name="future_input")
-            model_inputs.append(future_input)
-            concat_tensors.append(layers.Flatten(name="future_flatten")(future_input))
-        if self.static_features > 0:
-            static_input = layers.Input(shape=(self.static_features,), name="static_input")
-            model_inputs.append(static_input)
-            concat_tensors.append(
-                layers.Dense(min(16, self.static_features * 2), activation="relu", name="static_dense")(static_input)
-            )
-        x = layers.Concatenate(name="feature_concat")(concat_tensors) if len(concat_tensors) > 1 else concat_tensors[0]
-        output = layers.Dense(self.output_units, name="output")(x)
-        self.model = Model(inputs=model_inputs, outputs=output, name="gru_forecaster")
-        self.model.compile(
-            optimizer=keras.optimizers.Adam(learning_rate=self.learning_rate),
-            loss="mse",
-            metrics=["mae"],
+        logger.info(
+            "Built Attention LSTM model – past=%d, static=%d, future=%d",
+            self.input_features,
+            self.static_features,
+            self.future_features,
         )
-        logger.info("Built GRU model with %s", self.hidden_units)
-
-
-class AttentionLSTMModel(LSTMModel):
-    """LSTM with a simple attention mechanism.
-
-    The attention block is applied after the final LSTM layer and before the
-    dense output.
-    """
-
-    def __init__(self, attention_units: int = 64, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
-        self.attention_units = attention_units
-
-    def build(self) -> None:
-        past_input = layers.Input(shape=(self.sequence_length, self.input_features), name="past_input")
-        x = past_input
-        for i, units in enumerate(self.hidden_units[:-1]):
-            x = layers.LSTM(units, return_sequences=True, name=f"lstm_{i + 1}")(x)
-            x = layers.Dropout(self.dropout)(x)
-        x = layers.LSTM(self.hidden_units[-1], return_sequences=True, name="lstm_last")(x)
-        # Attention
-        att_hidden = layers.Dense(self.attention_units, activation="tanh", name="attention_hidden")(x)
-        att_scores = layers.Dense(1, name="attention_scores")(att_hidden)
-        att_weights = layers.Softmax(axis=1, name="attention_weights")(att_scores)
-        context = layers.Multiply()([x, att_weights])
-        context = layers.Lambda(lambda v: tf.reduce_sum(v, axis=1), name="attention_context")(context)
-        output = layers.Dense(self.output_units, name="output")(context)
-        self.model = Model(inputs=past_input, outputs=output, name="attention_lstm_forecaster")
-        self.model.compile(
-            optimizer=keras.optimizers.Adam(learning_rate=self.learning_rate),
-            loss="mse",
-            metrics=["mae"],
-        )
-        logger.info("Built Attention LSTM model with %s", self.hidden_units)
