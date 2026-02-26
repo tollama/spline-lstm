@@ -1,0 +1,33 @@
+# ---------------------------------------------------------------------------
+# basic_lstm.yaml  –  A complete single-target LSTM forecast configuration
+# ---------------------------------------------------------------------------
+# Usage:
+#   python3 -m src.training.runner \
+#     --config configs/examples/basic_lstm.yaml \
+#     --input-path data/raw/smoke_input.csv \
+#     --run-id $(date +%Y%m%d_%H%M%S)_basic
+# ---------------------------------------------------------------------------
+
+# ── Data ────────────────────────────────────────────────────────────────────
+timestamp_col: "timestamp"          # Name of the datetime column in the CSV
+target_col:    "target"             # Name of the column to forecast
+covariate_cols: []                  # No external covariates for this baseline
+
+# ── Preprocessing ───────────────────────────────────────────────────────────
+lookback:          24   # Number of historical steps fed to the LSTM
+horizon:            1   # Number of future steps to predict
+smoothing_window:   5   # Savitzky-Golay window size for target smoothing
+scaling:       "minmax" # Normalisation method: "minmax" | "standard"
+
+# ── Model ───────────────────────────────────────────────────────────────────
+model_type:    "lstm"         # Architecture: "lstm" | "gru" | "bilstm" | "attention"
+hidden_units:  [64, 32]       # Units per LSTM layer (from input → output)
+dropout:        0.2           # Dropout rate applied after each recurrent layer
+learning_rate:  0.001         # Adam initial learning rate
+
+# ── Training ────────────────────────────────────────────────────────────────
+epochs:         100           # Maximum training epochs (early stopping may halt earlier)
+batch_size:      32           # Mini-batch size
+test_size:       0.2          # Fraction of data held out for final evaluation
+val_size:        0.2          # Fraction of train data used for validation / early stop
+early_stopping:  true         # Stop when val_loss does not improve for 10 epochs

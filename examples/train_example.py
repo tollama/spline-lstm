@@ -81,9 +81,39 @@ def main():
     print("\n[5] Saving model...")
     checkpoint_path = trainer.save_checkpoint("example_model.keras")
     print(f"    Model saved to: {checkpoint_path}")
-    
+
+    # ---------------------------------------------------------------------------
+    # [6] Reload a saved model and run inference
+    # ---------------------------------------------------------------------------
+    # This section shows how to restore a previously trained model and generate
+    # predictions on new data without re-training.
+    print("\n[6] Reloading model and running inference...")
+
+    # Create a fresh model/trainer pair with the same architecture
+    model_reloaded = LSTMModel(
+        sequence_length=24,
+        hidden_units=[64, 32],
+        dropout=0.2,
+        learning_rate=0.001,
+    )
+    trainer_reloaded = Trainer(model_reloaded, sequence_length=24, prediction_horizon=1)
+    trainer_reloaded.load_checkpoint(checkpoint_path)
+
+    # Build a small inference batch from the tail of the test data (already smoothed)
+    # X_test from the training results has shape [batch, lookback, features]
+    X_inference = results["X_test"][:5]
+    y_inference = results["y_test"][:5]
+
+    preds = model_reloaded.predict(X_inference)
+
+    print(f"    Inference batch size: {X_inference.shape[0]}")
+    print("    ground_truth  | prediction")
+    print("    " + "-" * 30)
+    for gt, pr in zip(y_inference.flatten(), preds.flatten()):
+        print(f"    {gt:+.6f}    | {pr:+.6f}")
+
     print("\n" + "=" * 60)
-    print("Training complete!")
+    print("Training + inference example complete!")
     print("=" * 60)
 
 

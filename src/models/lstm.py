@@ -297,9 +297,34 @@ class LSTMModel:
         logger.info("Model saved to %s", path)
 
     def load(self, path: str) -> None:
-        """Load a Keras model from ``path``."""
-        self.model = keras.models.load_model(path)
-        logger.info("Model loaded from %s", path)
+        """Load a Keras model from ``path``.
+
+        The model is loaded with ``compile=False`` to avoid version-specific
+        deserialization issues with optimizer / metric configurations across
+        TensorFlow releases.  The model is then re-compiled with the same
+        settings used during construction so that ``evaluate()`` works as
+        expected after loading.
+
+        If *path* ends with ``.keras`` but only a ``.h5`` file exists on disk
+        (which happens because :meth:`save` converts ``.keras`` paths to ``.h5``
+        for compatibility), the ``.h5`` file is loaded automatically.
+        """
+        import os
+
+        resolved = path
+        if not os.path.exists(resolved) and resolved.lower().endswith(".keras"):
+            h5_candidate = resolved[:-6] + ".h5"
+            if os.path.exists(h5_candidate):
+                logger.info("'.keras' path not found; loading '%s' instead", h5_candidate)
+                resolved = h5_candidate
+
+        self.model = keras.models.load_model(resolved, compile=False)
+        self.model.compile(
+            optimizer=keras.optimizers.Adam(learning_rate=self.learning_rate),
+            loss="mse",
+            metrics=["mae"],
+        )
+        logger.info("Model loaded from %s", resolved)
 
 
 # ---------------------------------------------------------------------------
@@ -343,12 +368,15 @@ class GRUModel(LSTMModel):
         return x
 
 
+@keras.utils.register_keras_serializable(package="spline_lstm")
 class _ReduceSum(layers.Layer):
     """Serialisable replacement for ``Lambda(lambda v: tf.reduce_sum(v, axis=1))``.
 
     Using a ``Lambda`` layer with a Python closure referencing ``tf`` prevents
     the model from being saved/loaded correctly with ``model.save()``.  This
-    thin wrapper is fully serialisable and produces identical behaviour.
+    thin wrapper is decorated with ``@register_keras_serializable`` so that
+    Keras can look it up by name during deserialization without requiring a
+    ``custom_object_scope``.
     """
 
     def call(self, inputs: tf.Tensor) -> tf.Tensor:  # type: ignore[override]

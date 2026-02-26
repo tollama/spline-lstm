@@ -1,0 +1,53 @@
+# ---------------------------------------------------------------------------
+# with_covariates.yaml  –  LSTM forecast with future and static covariates
+# ---------------------------------------------------------------------------
+# This config demonstrates how to include external variables that are already
+# known at forecast time (future-known covariates, e.g. weather forecasts,
+# calendar flags, scheduled promotions) as well as static metadata
+# (e.g. store type, region ID) that does not change over time.
+#
+# Usage:
+#   python3 -m src.training.runner \
+#     --config configs/examples/with_covariates.yaml \
+#     --input-path data/raw/synthetic/S1_with_covariates.csv \
+#     --run-id $(date +%Y%m%d_%H%M%S)_cov
+#
+# Generating compatible synthetic data:
+#   python3 -m src.data.synthetic_generator \
+#     --scenario S1 --n-samples 720 --seed 42 \
+#     --covariates temp,promo,dow
+# ---------------------------------------------------------------------------
+
+# ── Data ────────────────────────────────────────────────────────────────────
+timestamp_col: "timestamp"
+target_col:    "target"
+
+# Columns that are known for the full forecast horizon at inference time.
+# The runner will split these into X_future [batch, horizon, n_future].
+future_covariate_cols:
+  - "temp"    # continuous: hourly temperature forecast
+  - "promo"   # binary:     is a promotion active in this hour?
+
+# Columns whose value is constant for the entire time series (e.g. per store).
+# The runner will assemble these into X_static [batch, n_static].
+# Comment out or set to [] if no static covariates are available.
+static_covariate_cols: []
+
+# ── Preprocessing ───────────────────────────────────────────────────────────
+lookback:         24
+horizon:           3    # Predict 3 steps ahead (requires future covariates for t+1..t+3)
+smoothing_window:  5
+scaling:      "standard"
+
+# ── Model ───────────────────────────────────────────────────────────────────
+model_type:   "lstm"
+hidden_units: [128, 64]
+dropout:        0.2
+learning_rate:  0.001
+
+# ── Training ────────────────────────────────────────────────────────────────
+epochs:         100
+batch_size:      32
+test_size:       0.2
+val_size:        0.2
+early_stopping:  true
