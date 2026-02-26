@@ -5,6 +5,22 @@ import sys
 
 from fastapi.testclient import TestClient
 
+_BACKEND_MODULES = [
+    "backend.app.main",
+    "backend.app.config",
+    "backend.app.utils",
+    "backend.app.models",
+    "backend.app.store",
+    "backend.app.executor",
+    "backend.app.routes",
+    "backend.app.routes.health",
+    "backend.app.routes.jobs",
+    "backend.app.routes.forecast",
+    "backend.app.routes.agent",
+    "backend.app.routes.tollama",
+    "backend.app.routes.runs",
+]
+
 
 def _load_app(monkeypatch, *, dev_mode: bool, token: str | None = None, raise_server_exceptions: bool = True):
     monkeypatch.setenv("SPLINE_DEV_MODE", "1" if dev_mode else "0")
@@ -14,7 +30,8 @@ def _load_app(monkeypatch, *, dev_mode: bool, token: str | None = None, raise_se
         monkeypatch.setenv("SPLINE_API_TOKEN", token)
     monkeypatch.setenv("SPLINE_TRUSTED_HOSTS", "localhost,127.0.0.1,testserver")
 
-    sys.modules.pop("backend.app.main", None)
+    for mod_name in _BACKEND_MODULES:
+        sys.modules.pop(mod_name, None)
     mod = importlib.import_module("backend.app.main")
     return mod, TestClient(mod.app, raise_server_exceptions=raise_server_exceptions)
 
@@ -42,7 +59,8 @@ def test_prod_mode_fails_fast_without_token(monkeypatch) -> None:
     monkeypatch.delenv("SPLINE_API_TOKEN", raising=False)
     monkeypatch.setenv("SPLINE_TRUSTED_HOSTS", "localhost,127.0.0.1,testserver")
 
-    sys.modules.pop("backend.app.main", None)
+    for mod_name in _BACKEND_MODULES:
+        sys.modules.pop(mod_name, None)
     try:
         importlib.import_module("backend.app.main")
         raise AssertionError("expected RuntimeError")
@@ -64,7 +82,9 @@ def test_internal_errors_are_sanitized(monkeypatch) -> None:
     def _boom(*args, **kwargs):
         raise RuntimeError("db password leaked: super-secret")
 
-    monkeypatch.setattr(mod, "_read_json_if_exists", _boom)
+    # Patch read_json_if_exists in the runs route module where it's used
+    runs_mod = importlib.import_module("backend.app.routes.runs")
+    monkeypatch.setattr(runs_mod, "read_json_if_exists", _boom)
     res = client.get("/api/v1/runs/some-run/metrics", headers={"X-API-Token": "secret-token"})
     assert res.status_code == 500
     body = res.json()

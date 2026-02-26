@@ -51,6 +51,8 @@ env/
 artifacts/
 checkpoints/
 logs/
+*.keras
+*.h5
 
 # ==========================
 # Node.js (ui/)
@@ -86,4 +88,6 @@ backend/data/jobs_store.json.lock
 # Data
 # ==========================
 data/raw/
+!data/raw/smoke_input.csv
+!data/raw/phase5_covariate_input.csv
 

@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-02-27
+
+### Changed
+- **Backend decomposed into modules**: `backend/app/main.py` (1,283 lines) split into
+  `config.py`, `models.py`, `store.py`, `executor.py`, `utils.py`, and `routes/` package
+  for better maintainability and contributor onboarding.
+- **Documentation reorganized**: 118 internal development notes moved to `docs/internal/`;
+  `docs/` now shows only user-facing guides.
+- **CI matrix expanded**: Tests now run on Python 3.10 and 3.11 (previously only 3.10).
+- **Test coverage reporting**: Added `pytest-cov` with coverage thresholds and CI reporting.
+- **Repository hygiene**: Removed stray `tmp.keras`, untracked regenerable synthetic data,
+  added `*.keras`/`*.h5` to `.gitignore`.
+- **PyPI publish workflow**: Added GitHub Actions workflow for automated PyPI publishing on
+  tag push using trusted publishing (OIDC).
+
 ### Fixed
 - **`cross_validate()`**: Model weights were not reset between folds, causing each fold to
   inherit accumulated training from all previous folds.  The model is now rebuilt from

@@ -1,6 +1,8 @@
 # Spline-LSTM Time Series Forecasting
 
 [![CI](https://github.com/ychoi-atop/spline-lstm/actions/workflows/ci.yml/badge.svg)](https://github.com/ychoi-atop/spline-lstm/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11-blue)](https://www.python.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 **Spline-LSTM** is a comprehensive, production-ready machine learning project designed for advanced time-series forecasting. By combining robust spline-based preprocessing with modern LSTM-family neural networks, this project aims to provide highly accurate, scalable, and reproducible forecasting models.
 
@@ -113,8 +115,8 @@ For production deployments, day-2 operations, and specific feature details, plea
 - **Quick Operator Commands:** [`OPERATIONS_QUICKSTART.md`](OPERATIONS_QUICKSTART.md)
 - **Architecture & Technology Overview:** [`docs/architecture.md`](docs/architecture.md)
 - **Detailed Runbook (Failure Handling, Security):** [`docs/RUNBOOK.md`](docs/RUNBOOK.md)
-- **GUI Production Cutover:** [`docs/GUI_PROD_CUTOVER_CHECKLIST.md`](docs/GUI_PROD_CUTOVER_CHECKLIST.md)
-- **Phase 6 Details & Agent Ecosystem:** [`docs/PHASE6_AGENT_ECOSYSTEM_PLAN.md`](docs/PHASE6_AGENT_ECOSYSTEM_PLAN.md)
+- **GUI Production Cutover:** [`docs/internal/GUI_PROD_CUTOVER_CHECKLIST.md`](docs/internal/GUI_PROD_CUTOVER_CHECKLIST.md)
+- **Phase 6 Details & Agent Ecosystem:** [`docs/internal/PHASE6_AGENT_ECOSYSTEM_PLAN.md`](docs/internal/PHASE6_AGENT_ECOSYSTEM_PLAN.md)
 
 ### Test Warning Policy
 To keep CI/local output readable, conservative warning filters are applied in `pytest.ini`. If you need to see deep environment warnings (like SSL or Matplotlib internals), temporarily disable the filters:
