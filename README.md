@@ -55,12 +55,14 @@ You can run the end-to-end pipeline (Preprocessing → Training → Evaluation) 
 # 1. Generate synthetic benchmarking data
 python3 -m src.data.synthetic_generator --scenario S2 --n-samples 720 --seed 123 --covariates temp,promo,event
 
-# 2. Run the One-Click End-to-End full pipeline
-bash scripts/run_e2e.sh
+# 2. Run the One-Click End-to-End full pipeline with the generated CSV
+INPUT_PATH=data/raw/synthetic/synthetic_S2_n720_seed123.csv bash scripts/run_e2e.sh
 
 # 3. Fast Smoke Gate Validation
 bash scripts/smoke_test.sh
 ```
+
+If `INPUT_PATH` is omitted, `scripts/run_e2e.sh` automatically creates and uses a built-in smoke input dataset.
 
 ### Running the Backend API
 
