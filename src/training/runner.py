@@ -7,6 +7,7 @@ import csv
 import json
 import logging
 import pickle
+import shutil
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -435,20 +436,9 @@ def _validate_phase3_metadata_contract(run_id: str, runmeta: dict[str, Any]) -> 
 
 
 def _build_callbacks(checkpoint_dir: Path):
-    if BACKEND != "tensorflow":
-        return []
-    from tensorflow import keras  # local import for backend-safe execution
-
-    best_path = checkpoint_dir / "best.keras"
-    return [
-        keras.callbacks.ModelCheckpoint(
-            filepath=str(best_path),
-            monitor="val_loss",
-            save_best_only=True,
-            mode="min",
-            verbose=0,
-        )
-    ]
+    # Keep callback wiring lightweight for compatibility with older TF/Keras builds.
+    # Runtime checkpointing in `run()` handles artifact persistence explicitly.
+    return []
 
 
 def _build_model(
@@ -480,6 +470,10 @@ def _compute_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> dict[str, float]
     mask = y_true != 0
     mape = np.mean(np.abs((y_true[mask] - y_pred[mask]) / y_true[mask])) * 100 if mask.sum() > 0 else np.inf
 
+    epsilon = 1e-8
+    denom = np.maximum(np.abs(y_true), epsilon)
+    mape_zero_safe = np.mean(np.abs((y_true - y_pred) / denom)) * 100
+
     if y_true.shape[0] > 1:
         naive_diff = np.abs(y_true[1:, 0] - y_true[:-1, 0]) if y_true.ndim == 2 else np.abs(y_true[1:] - y_true[:-1])
         naive_mae = np.mean(naive_diff)
@@ -498,6 +492,7 @@ def _compute_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> dict[str, float]
         "mape": float(mape),
         "mase": float(mase),
         "r2": float(r2),
+        "mape_zero_safe": float(mape_zero_safe),
     }
 
 
@@ -656,11 +651,16 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         X_test, y_test, y_pred = trainer.X_test, trainer.y_test, trainer.y_pred
 
     last_ckpt = checkpoint_dir / "last.keras"
-    model.save(str(last_ckpt))
+    last_ckpt_h5 = checkpoint_dir / "last.h5"
+    model.save(str(last_ckpt_h5))
+    if not last_ckpt.exists():
+        shutil.copy2(last_ckpt_h5, last_ckpt)
 
     best_ckpt = checkpoint_dir / "best.keras"
-    if not best_ckpt.exists():
-        model.save(str(best_ckpt))
+    best_ckpt_h5 = checkpoint_dir / "best.h5"
+    if not best_ckpt.exists() and not best_ckpt_h5.exists():
+        model.save(str(best_ckpt_h5))
+        shutil.copy2(best_ckpt_h5, best_ckpt)
 
     x_last = X_test[-1:]
     y_true_last = y_test[-1]
@@ -794,6 +794,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
 - MSE: {results["metrics"]["mse"]:.6f}
 - RMSE: {results["metrics"]["rmse"]:.6f}
 - MAPE: {results["metrics"]["mape"]:.4f}
+- MAPE (zero-safe): {results["metrics"].get("mape_zero_safe", float("nan")):.4f}
 - MASE: {results["metrics"].get("mase", float("nan")):.6f}
 - R2: {results["metrics"]["r2"]:.6f}
 

@@ -67,6 +67,8 @@ python3 -m src.training.runner \
   --processed-npz "${PROCESSED_PATH}" \
   --preprocessor-pkl "${PREP_PATH}" \
   --epochs "${EPOCHS}" \
+  --sequence-length "${LOOKBACK}" \
+  --horizon "${HORIZON}" \
   --artifacts-dir "${ARTIFACTS_DIR}" >"${TRAIN_LOG}" 2>&1
 rc=$?
 set -e

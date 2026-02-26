@@ -157,6 +157,10 @@ class Trainer:
         mask = y_true != 0
         mape = np.mean(np.abs((y_true[mask] - y_pred[mask]) / y_true[mask])) * 100 if mask.sum() > 0 else np.inf
 
+        epsilon = 1e-8
+        denom = np.maximum(np.abs(y_true), epsilon)
+        mape_zero_safe = np.mean(np.abs((y_true - y_pred) / denom)) * 100
+
         # MASE: mean absolute scaled error based on a naive one-step forecast
         # Use the first feature of the target for naive baseline
         if y_true.shape[0] > 1:
@@ -180,6 +184,7 @@ class Trainer:
             "mape": float(mape),
             "mase": float(mase),
             "r2": float(r2),
+            "mape_zero_safe": float(mape_zero_safe),
         }
 
     def train(

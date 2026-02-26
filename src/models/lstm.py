@@ -281,10 +281,19 @@ class LSTMModel:
         return {"loss": float(loss), "mae": float(mae)}
 
     def save(self, path: str) -> None:
-        """Save the Keras model to ``path``."""
+        """Save the Keras model to ``path``.
+
+        Use explicit HDF5 format for .keras paths to avoid native-Keras option
+        handling issues on environments where `options` argument is rejected.
+        """
         if self.model is None:
             raise RuntimeError("Model is not built/trained. Call build() or fit_model() first.")
+
+        path_lower = path.lower()
+        if path_lower.endswith(".keras"):
+            path = path[:-6] + ".h5"
         self.model.save(path)
+
         logger.info("Model saved to %s", path)
 
     def load(self, path: str) -> None:
