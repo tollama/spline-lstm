@@ -7,7 +7,6 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import pytest
-
 from src.data.synthetic_generator import GeneratorConfig, generate_dataframe, main, parse_args, save_outputs
 
 
