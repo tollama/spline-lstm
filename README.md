@@ -101,11 +101,27 @@ python3 scripts/benchmark_edge.py \
   --artifacts-dir artifacts \
   --edge-sla balanced
 
+# Ingest real-device benchmark JSON (Android/iOS) into standard edge_bench schema
+python3 scripts/ingest_edge_device_bench.py \
+  --run-id edge-demo-001 \
+  --artifacts-dir artifacts \
+  --device-result android_high_end=/tmp/android_bench.json \
+  --device-result ios_high_end=/tmp/ios_bench.json \
+  --edge-sla balanced
+
 # Apply OTA release gate (blocks promotion on SLA miss)
 python3 scripts/edge_release_gate.py \
   --run-id edge-demo-001 \
   --artifacts-dir artifacts \
   --required-profiles android_high_end,ios_high_end
+
+# (Optional) one-step: ingest device results and run gate in one command
+python3 scripts/edge_release_gate.py \
+  --run-id edge-demo-001 \
+  --artifacts-dir artifacts \
+  --required-profiles android_high_end,ios_high_end \
+  --device-result android_high_end=/tmp/android_bench.json \
+  --device-result ios_high_end=/tmp/ios_bench.json
 
 # Candidate lane automation (train -> benchmark -> gate -> champion/fallback selection)
 python3 scripts/edge_selection_lane.py \
@@ -114,6 +130,16 @@ python3 scripts/edge_selection_lane.py \
   --candidates gru,tcn,dlinear \
   --seeds 41,42,43 \
   --selection-profile desktop_reference \
+  --benchmark-profiles android_high_end,ios_high_end,desktop_reference \
+  --gate-required-profiles android_high_end,ios_high_end \
+  --score-profiles android_high_end,ios_high_end \
+  --score-profile-weights android_high_end=0.5,ios_high_end=0.5 \
+  --gate-device-results-dir-template artifacts/device_results/{run_id} \
+  --teacher-provider tollama \
+  --teacher-model chronos-2 \
+  --teacher-model timesfm-2.5 \
+  --tollama-base-url http://127.0.0.1:11434 \
+  --teacher-enable-forecast-fallback \
   --max-accuracy-degradation-pct 2.0
 ```
 
@@ -124,6 +150,7 @@ Artifacts:
 - Leaderboard: `artifacts/edge_bench/<run_id>/leaderboard.json`
 - Release gate report: `artifacts/edge_bench/<run_id>/release_gate.json`
 - Candidate lane selection: `artifacts/edge_selection/<experiment_id>/selection.json`
+- Real-device ingest wrapper: `scripts/ingest_edge_device_bench.py`
 
 Backend runtime-aware inference endpoint:
 - `POST /api/v1/forecast/infer` (reads `runtime_stack` + `fallback_chain`, then attempts `tflite -> onnx -> keras -> naive`)

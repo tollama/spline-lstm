@@ -36,6 +36,12 @@ def _build_gate_args(
         max_failures=0,
         min_edge_score=None,
         output_path=None,
+        device_result=[],
+        device_results_dir=None,
+        ingest_edge_sla="balanced",
+        device_benchmark_config=None,
+        metrics_json=None,
+        no_ingest_merge_existing=False,
     )
 
 
@@ -143,3 +149,50 @@ def test_edge_release_gate_blocks_on_accuracy_degradation(tmp_path: Path) -> Non
     out = run(args)
     assert out["promotion_allowed"] is False
     assert any("rmse_degradation_pct" in item for item in out["blockers"])
+
+
+def test_edge_release_gate_inline_ingests_device_results(tmp_path: Path) -> None:
+    run_id = "gate-inline-ingest-001"
+    artifacts = tmp_path / "artifacts"
+
+    _write_json(
+        artifacts / "metrics" / f"{run_id}.json",
+        {
+            "metrics": {"rmse": 0.98},
+            "baselines": {"naive_last": {"rmse": 1.00}},
+        },
+    )
+    _write_json(
+        artifacts / "exports" / run_id / "ota_manifest.json",
+        {
+            "model_id": "spline-edge",
+            "semantic_version": "1.0.0",
+            "target_runtime": "tflite",
+        },
+    )
+
+    android_source = tmp_path / "android_device.json"
+    _write_json(
+        android_source,
+        {
+            "runtime": "tflite",
+            "latency_ms": {"p50": 18.0, "p95": 25.0},
+            "memory_peak_mb": 220.0,
+            "size_mb": 4.2,
+            "attempts": 1000,
+            "failures": 0,
+        },
+    )
+
+    args = _build_gate_args(
+        run_id=run_id,
+        artifacts=artifacts,
+        required_profiles="android_high_end",
+        skip_memory_check=True,
+    )
+    args.device_result = [f"android_high_end={android_source}"]
+    out = run(args)
+
+    assert out["promotion_allowed"] is True
+    assert (artifacts / "edge_bench" / run_id / "android_high_end.json").exists()
+    assert (artifacts / "edge_bench" / run_id / "leaderboard.json").exists()

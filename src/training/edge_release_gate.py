@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from src.training.edge import utc_now_iso
+from src.training.edge_device_ingest import run as run_device_ingest
 
 logger = logging.getLogger(__name__)
 
@@ -181,6 +182,19 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     if not required_profiles:
         raise ValueError("required_profiles must not be empty")
 
+    if args.device_result or args.device_results_dir:
+        ingest_args = argparse.Namespace(
+            run_id=run_id,
+            artifacts_dir=str(artifacts_dir),
+            device_result=list(args.device_result),
+            device_results_dir=args.device_results_dir,
+            edge_sla=args.ingest_edge_sla,
+            device_benchmark_config=args.device_benchmark_config,
+            metrics_json=args.metrics_json,
+            merge_existing=not args.no_ingest_merge_existing,
+        )
+        run_device_ingest(ingest_args)
+
     leaderboard_path = artifacts_dir / "edge_bench" / run_id / "leaderboard.json"
     if not leaderboard_path.exists():
         raise FileNotFoundError(f"leaderboard not found: {leaderboard_path}")
@@ -190,7 +204,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         raise ValueError("leaderboard.results must be a list")
     result_rows = [row for row in results if isinstance(row, dict)]
 
-    metrics_path = artifacts_dir / "metrics" / f"{run_id}.json"
+    metrics_path = Path(args.metrics_json) if args.metrics_json else artifacts_dir / "metrics" / f"{run_id}.json"
     metrics_payload = _load_json(metrics_path) if metrics_path.exists() else None
     degradation_pct = _accuracy_degradation_pct(metrics_payload)
 
@@ -257,6 +271,27 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--max-failures", type=int, default=0)
     p.add_argument("--min-edge-score", type=float, default=None)
     p.add_argument("--output-path", type=str, default=None)
+    p.add_argument(
+        "--device-result",
+        action="append",
+        default=[],
+        help="Optional '<device_profile>=<json_path>' entries for inline ingest before gate evaluation",
+    )
+    p.add_argument(
+        "--device-results-dir",
+        type=str,
+        default=None,
+        help="Optional directory containing device result JSON files for inline ingest",
+    )
+    p.add_argument("--ingest-edge-sla", type=str, choices=["balanced", "accuracy_biased", "latency_biased"], default="balanced")
+    p.add_argument("--device-benchmark-config", type=str, default=None)
+    p.add_argument("--metrics-json", type=str, default=None)
+    p.add_argument(
+        "--no-ingest-merge-existing",
+        action="store_true",
+        default=False,
+        help="When ingesting inline, do not merge existing edge_bench profile records",
+    )
     return p
 
 

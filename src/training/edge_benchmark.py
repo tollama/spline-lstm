@@ -20,6 +20,7 @@ from src.training.edge import (
     compute_stability_score,
     load_device_profiles,
     parse_edge_sla,
+    run_keras_inference,
     run_onnx_inference,
     run_tflite_inference,
     select_runtime_stack,
@@ -63,6 +64,8 @@ def _runtime_infer(runtime: str, model_path: Path, sample_inputs: list[np.ndarra
         return run_tflite_inference(model_path, sample_inputs)
     if runtime == "onnx":
         return run_onnx_inference(model_path, sample_inputs)
+    if runtime == "keras":
+        return run_keras_inference(model_path, sample_inputs)
     raise ValueError(f"unsupported runtime benchmark: {runtime}")
 
 
@@ -208,7 +211,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "parity_error": manifest.get("parity", {}).get(runtime_stack),
         }
 
-        if runtime_stack == "keras" or not model_ref:
+        if not model_ref:
             record.update(
                 {
                     "status": "skipped",

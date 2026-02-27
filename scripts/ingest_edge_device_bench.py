@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""CLI wrapper for edge candidate lane selection."""
+"""CLI wrapper for real-device edge benchmark ingestion."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from src.training.edge_selection_lane import main  # noqa: E402
+from src.training.edge_device_ingest import main  # noqa: E402
 
 if __name__ == "__main__":
     main()

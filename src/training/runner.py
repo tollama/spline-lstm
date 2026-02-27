@@ -513,6 +513,7 @@ def _export_edge_artifacts(
     parity_max_abs_diff: float,
     parity_rmse_max: float,
     parity_enforce: bool,
+    keras_model_path: str | None,
 ) -> tuple[dict[str, Any], dict[str, Any], Path, Path]:
     exports_root = artifacts_base / "exports" / run_id
     model_root = exports_root / model_type
@@ -573,7 +574,10 @@ def _export_edge_artifacts(
         except Exception as exc:  # pragma: no cover - runtime dependent
             parity[runtime_name] = {"error": str(exc)}
 
-    runtime_compatibility = build_runtime_compatibility(export_results)
+    runtime_compatibility = build_runtime_compatibility(
+        export_results,
+        keras_path=keras_model_path,
+    )
     for runtime_name in ("tflite", "onnx"):
         parity_result = parity.get(runtime_name)
         if parity_result is None:
@@ -914,6 +918,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         parity_max_abs_diff=args.parity_max_abs_diff,
         parity_rmse_max=args.parity_rmse_max,
         parity_enforce=args.parity_enforce,
+        keras_model_path=str(best_ckpt_h5),
     )
 
     if "evaluation_context" not in baselines_obj:

@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
+import src.training.edge as edge
 from src.training.edge import (
     build_runtime_compatibility,
     compute_accuracy_score,
@@ -45,11 +47,13 @@ def test_build_runtime_compatibility_matrix() -> None:
         {
             "tflite": {"status": "succeeded", "path": "a.tflite"},
             "onnx": {"status": "failed", "error": "missing tf2onnx"},
-        }
+        },
+        keras_path="best.keras",
     )
     assert matrix["tflite"]["supported"] is True
     assert matrix["onnx"]["supported"] is False
     assert matrix["keras"]["supported"] is True
+    assert matrix["keras"]["path"] == "best.keras"
 
 
 def test_edge_score_components_and_weighted_total() -> None:
@@ -95,3 +99,17 @@ def test_parity_threshold_evaluator() -> None:
     assert parity_within_thresholds(ok, max_abs_diff=0.1, rmse=0.1) is True
     assert parity_within_thresholds(bad, max_abs_diff=0.1, rmse=0.1) is False
     assert parity_within_thresholds(err, max_abs_diff=0.1, rmse=0.1) is False
+
+
+def test_export_tflite_model_subprocess_failure_returns_failed(monkeypatch, tmp_path: Path) -> None:
+    class _DummyModel:
+        def save(self, path: Path, include_optimizer: bool = False) -> None:
+            Path(path).write_text("dummy", encoding="utf-8")
+
+    def _fake_run(*_args, **_kwargs):
+        return SimpleNamespace(returncode=-6, stdout="", stderr="LLVM ERROR: Failed to infer result type(s).")
+
+    monkeypatch.setattr(edge.subprocess, "run", _fake_run)
+    out = edge.export_tflite_model(_DummyModel(), tmp_path / "model.tflite", quantization="fp16")
+    assert out["status"] == "failed"
+    assert "LLVM ERROR" in out["error"]

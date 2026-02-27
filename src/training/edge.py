@@ -6,6 +6,9 @@ import copy
 import hashlib
 import json
 import logging
+import subprocess
+import sys
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -13,6 +16,7 @@ from typing import Any
 import numpy as np
 
 logger = logging.getLogger(__name__)
+_KERAS_MODEL_CACHE: dict[str, Any] = {}
 
 
 EDGE_DEVICE_PROFILES: dict[str, dict[str, Any]] = {
@@ -150,23 +154,28 @@ def export_tflite_model(
         return {"status": "failed", "error": f"tensorflow unavailable: {exc}"}
 
     try:
+        if quantization not in {"none", "fp16", "int8"}:
+            raise ValueError(f"unsupported quantization: {quantization}")
+
+        # Run non-int8 conversion in a subprocess so converter LLVM crashes do not
+        # abort the training runner process.
+        if quantization in {"none", "fp16"}:
+            return _export_tflite_model_subprocess(
+                keras_model=keras_model,
+                out_path=out_path,
+                quantization=quantization,
+            )
+
         out_path.parent.mkdir(parents=True, exist_ok=True)
         converter = tf.lite.TFLiteConverter.from_keras_model(keras_model)
-
-        if quantization == "fp16":
-            converter.optimizations = [tf.lite.Optimize.DEFAULT]
-            converter.target_spec.supported_types = [tf.float16]
-        elif quantization == "int8":
-            if calibration_inputs is None:
-                raise ValueError("int8 quantization requires calibration inputs")
-            cal = _truncate_calibration_inputs(calibration_inputs, max_samples=max(1, int(calibration_max_samples)))
-            converter.optimizations = [tf.lite.Optimize.DEFAULT]
-            converter.representative_dataset = lambda: _representative_dataset(cal)
-            converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS_INT8]
-            converter.inference_input_type = tf.int8
-            converter.inference_output_type = tf.int8
-        elif quantization != "none":
-            raise ValueError(f"unsupported quantization: {quantization}")
+        if calibration_inputs is None:
+            raise ValueError("int8 quantization requires calibration inputs")
+        cal = _truncate_calibration_inputs(calibration_inputs, max_samples=max(1, int(calibration_max_samples)))
+        converter.optimizations = [tf.lite.Optimize.DEFAULT]
+        converter.representative_dataset = lambda: _representative_dataset(cal)
+        converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS_INT8]
+        converter.inference_input_type = tf.int8
+        converter.inference_output_type = tf.int8
 
         tflite_data = converter.convert()
         out_path.write_bytes(tflite_data)
@@ -181,6 +190,54 @@ def export_tflite_model(
     except Exception as exc:  # pragma: no cover - runtime dependent
         logger.exception("TFLite export failed")
         return {"status": "failed", "error": str(exc), "quantization": quantization}
+
+
+def _export_tflite_model_subprocess(*, keras_model: Any, out_path: Path, quantization: str) -> dict[str, Any]:
+    with tempfile.TemporaryDirectory(prefix="spline_tflite_export_") as tmpdir:
+        tmp_model_path = Path(tmpdir) / "model.keras"
+        keras_model.save(tmp_model_path, include_optimizer=False)
+
+        script = (
+            "import json, sys\n"
+            "from pathlib import Path\n"
+            "import tensorflow as tf\n"
+            "model_path = Path(sys.argv[1])\n"
+            "out_path = Path(sys.argv[2])\n"
+            "quantization = sys.argv[3]\n"
+            "model = tf.keras.models.load_model(model_path)\n"
+            "converter = tf.lite.TFLiteConverter.from_keras_model(model)\n"
+            "if quantization == 'fp16':\n"
+            "    converter.optimizations = [tf.lite.Optimize.DEFAULT]\n"
+            "    converter.target_spec.supported_types = [tf.float16]\n"
+            "elif quantization != 'none':\n"
+            "    raise ValueError(f'unsupported quantization: {quantization}')\n"
+            "tflite_data = converter.convert()\n"
+            "out_path.parent.mkdir(parents=True, exist_ok=True)\n"
+            "out_path.write_bytes(tflite_data)\n"
+            "print(json.dumps({'size_bytes': int(out_path.stat().st_size)}))\n"
+        )
+        proc = subprocess.run(
+            [sys.executable, "-c", script, str(tmp_model_path), str(out_path), quantization],
+            text=True,
+            capture_output=True,
+        )
+        if proc.returncode != 0:
+            error = (proc.stderr or proc.stdout).strip() or f"tflite converter subprocess failed (rc={proc.returncode})"
+            return {
+                "status": "failed",
+                "error": error,
+                "quantization": quantization,
+                "subprocess_returncode": int(proc.returncode),
+            }
+
+        return {
+            "status": "succeeded",
+            "path": str(out_path),
+            "size_bytes": int(out_path.stat().st_size),
+            "sha256": _sha256(out_path),
+            "quantization": quantization,
+            "calibration_samples": None,
+        }
 
 
 def export_onnx_model(keras_model: Any, out_path: Path) -> dict[str, Any]:
@@ -243,6 +300,28 @@ def run_onnx_inference(model_path: Path, sample_inputs: Any) -> np.ndarray:
     return np.asarray(outputs[0], dtype=np.float32)
 
 
+def run_keras_inference(model_path: Path, sample_inputs: Any) -> np.ndarray:
+    import tensorflow as tf
+
+    cache_key = str(model_path.resolve())
+    model = _KERAS_MODEL_CACHE.get(cache_key)
+    if model is None:
+        model = tf.keras.models.load_model(str(model_path), compile=False)
+        _KERAS_MODEL_CACHE[cache_key] = model
+
+    inputs = _as_input_list(sample_inputs)
+    input_names = list(getattr(model, "input_names", []) or [])
+    if len(inputs) == 1:
+        model_inputs: Any = {input_names[0]: inputs[0]} if input_names else inputs[0]
+    elif input_names and len(input_names) == len(inputs):
+        model_inputs = {name: arr for name, arr in zip(input_names, inputs, strict=False)}
+    else:
+        model_inputs = inputs
+
+    outputs = model(model_inputs, training=False)
+    return np.asarray(outputs, dtype=np.float32)
+
+
 def compute_parity(reference: np.ndarray, candidate: np.ndarray) -> dict[str, float]:
     ref = np.asarray(reference, dtype=np.float32).reshape(-1)
     cand = np.asarray(candidate, dtype=np.float32).reshape(-1)
@@ -271,7 +350,11 @@ def parity_within_thresholds(
     return float(result_max_abs) <= float(max_abs_diff) and float(result_rmse) <= float(rmse)
 
 
-def build_runtime_compatibility(export_results: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
+def build_runtime_compatibility(
+    export_results: dict[str, dict[str, Any]],
+    *,
+    keras_path: str | None = None,
+) -> dict[str, dict[str, Any]]:
     matrix: dict[str, dict[str, Any]] = {
         "tflite": {
             "supported": export_results.get("tflite", {}).get("status") == "succeeded",
@@ -285,7 +368,7 @@ def build_runtime_compatibility(export_results: dict[str, dict[str, Any]]) -> di
         },
         "keras": {
             "supported": True,
-            "path": None,
+            "path": keras_path,
             "reason": None,
         },
     }
