@@ -10,8 +10,9 @@ router = APIRouter()
 
 
 @router.get(f"{API_PREFIX}/health")
-def health() -> dict[str, Any]:
-    from backend.app.main import executor, store
+def health(request: Request) -> dict[str, Any]:
+    store = request.app.state.store
+    executor = request.app.state.executor
 
     writable = False
     try:
@@ -42,7 +43,7 @@ def health() -> dict[str, Any]:
 
 @router.get(f"{API_PREFIX}/dashboard/summary")
 def dashboard_summary(request: Request) -> dict[str, Any]:
-    from backend.app.main import store
+    store = request.app.state.store
     from backend.app.routes.jobs import to_job_payload
 
     jobs = [to_job_payload(job, request=request) for job in store.list_recent(limit=10)]
@@ -72,7 +73,7 @@ def dashboard_summary(request: Request) -> dict[str, Any]:
 
 @router.get(f"{API_PREFIX}/pilot/readiness")
 def pilot_readiness(request: Request) -> dict[str, Any]:
-    from backend.app.main import store
+    store = request.app.state.store
 
     recent = store.list_recent(limit=20)
     total = len(recent)

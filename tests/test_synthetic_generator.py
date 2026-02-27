@@ -90,7 +90,8 @@ def _build_synthetic_scenario(
         {
             "timestamp": pd.to_datetime(ts),
             "target": y.astype(np.float64),
-            "scenario": scenario,
+            # Keep this column as object dtype across pandas versions.
+            "scenario": np.full(len(y), scenario, dtype=object),
         }
     )
 

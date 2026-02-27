@@ -29,6 +29,8 @@ executor = JobExecutor(store)
 # App creation
 # ---------------------------------------------------------------------------
 app = FastAPI(title="spline-lstm backend skeleton", version="0.2.0")
+app.state.store = store
+app.state.executor = executor
 
 if SECURITY["trusted_hosts"]:
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=SECURITY["trusted_hosts"])
