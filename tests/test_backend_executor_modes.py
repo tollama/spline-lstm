@@ -7,6 +7,22 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
+_BACKEND_MODULES = [
+    "backend.app.routes.runs",
+    "backend.app.routes.tollama",
+    "backend.app.routes.agent",
+    "backend.app.routes.forecast",
+    "backend.app.routes.jobs",
+    "backend.app.routes.health",
+    "backend.app.routes",
+    "backend.app.executor",
+    "backend.app.store",
+    "backend.app.utils",
+    "backend.app.models",
+    "backend.app.config",
+    "backend.app.main",
+]
+
 
 def _load_client(tmp_path: Path, monkeypatch, *, mode: str, cmd: str):
     artifacts_dir = tmp_path / "artifacts"
@@ -17,9 +33,10 @@ def _load_client(tmp_path: Path, monkeypatch, *, mode: str, cmd: str):
     monkeypatch.setenv("SPLINE_BACKEND_STORE_PATH", str(store_path))
     monkeypatch.setenv("SPLINE_BACKEND_RUN_TIMEOUT_SEC", "5")
 
-    import backend.app.main as backend_main
+    for mod_name in _BACKEND_MODULES:
+        sys.modules.pop(mod_name, None)
 
-    backend_main = importlib.reload(backend_main)
+    backend_main = importlib.import_module("backend.app.main")
     return TestClient(backend_main.app)
 
 

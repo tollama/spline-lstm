@@ -34,6 +34,10 @@ class PreprocessingConfig:
     static_covariate_cols: Sequence[str] = ()
     future_covariate_cols: Sequence[str] = ()
     covariate_spec: str | None = None
+    knot_strategy: str = "auto"
+    smoothing_method: str = "legacy"
+    inject_spline_features: bool = False
+    residual_mode: bool = False
 
 
 def _validate_run_id(run_id: str) -> None:
@@ -145,9 +149,34 @@ def run_preprocessing_pipeline(
 
     series = validated[config.target_col].to_numpy(dtype=float)
 
-    pre = SplinePreprocessor()
+    pre = SplinePreprocessor(
+        knot_strategy=config.knot_strategy,
+        smoothing_method=config.smoothing_method,
+    )
     series_interp = pre.interpolate_missing(series)
     series_smooth = pre.smooth(series_interp, window=config.smoothing_window)
+
+    # --- Spline feature injection (WI-5) ---
+    # Fit a spline on the full interpolated series to extract derivative/residual features.
+    spline_features: dict[str, np.ndarray] = {}
+    if config.inject_spline_features:
+        x_axis = np.arange(len(series_smooth), dtype=float)
+        pre.fit(x_axis, series_smooth)
+        spline_features["spline_d1"] = pre.evaluate_derivatives(x_axis, order=1)
+        spline_features["spline_d2"] = pre.evaluate_derivatives(x_axis, order=2)
+        spline_features["spline_residual"] = pre.compute_residuals(x_axis, series_smooth)
+
+    # --- Residual mode (WI-4) ---
+    # Store the spline-smoothed series for trend; the training target becomes actual - trend.
+    y_spline_array: np.ndarray | None = None
+    if config.residual_mode:
+        x_axis_rm = np.arange(len(series_smooth), dtype=float)
+        if not pre._fitted:
+            pre.fit(x_axis_rm, series_smooth)
+        # series_smooth IS the spline output, so residuals vs raw interpolated:
+        spline_trend = np.asarray(pre.transform(x_axis_rm), dtype=float)
+        # We'll compute y_spline windows after scaling to use as the additive trend component.
+        y_spline_array = spline_trend
 
     # Leakage-safe scaling: fit only on train split, then transform full series.
     train_smooth, _, _, (train_end, _) = chronological_split(series_smooth)
@@ -156,6 +185,13 @@ def run_preprocessing_pipeline(
     series_scaled = scaler.transform(series_smooth)
 
     X, y = make_windows(series_scaled, lookback=config.lookback, horizon=config.horizon)
+
+    # If residual mode, compute y_spline windows and adjust y to residuals.
+    y_spline_windows: np.ndarray | None = None
+    if config.residual_mode and y_spline_array is not None:
+        spline_scaled = scaler.transform(y_spline_array)
+        _, y_spline_windows = make_windows(spline_scaled, lookback=config.lookback, horizon=config.horizon)
+        y = y - y_spline_windows  # LSTM learns residuals only
 
     covariates_raw = None
     covariates_scaled = None
@@ -166,6 +202,18 @@ def run_preprocessing_pipeline(
     X_mv, y_mv, X_fut = None, None, None
     feature_names = [config.target_col]
     target_indices = [0]
+
+    # Pre-compute spline-derived covariate arrays (already scaled).
+    _spline_cov_scaled: np.ndarray | None = None
+    _spline_cov_names: list[str] = []
+    if spline_features:
+        _spline_cov_arrays = []
+        for sf_name, sf_arr in spline_features.items():
+            sf_scaler = build_scaler(config.scaling)
+            sf_scaler.fit(sf_arr[:train_end])
+            _spline_cov_arrays.append(sf_scaler.transform(sf_arr).reshape(-1, 1))
+            _spline_cov_names.append(sf_name)
+        _spline_cov_scaled = np.concatenate(_spline_cov_arrays, axis=1)
 
     if covariate_cols:
         cov_df = validated[covariate_cols].copy()
@@ -179,17 +227,28 @@ def run_preprocessing_pipeline(
             train_end=train_end,
             method=config.scaling,
         )
+        # Append spline features to user-declared covariates.
+        if _spline_cov_scaled is not None:
+            covariates_scaled = np.concatenate([covariates_scaled, _spline_cov_scaled], axis=1)
         features_scaled = np.concatenate([series_scaled.reshape(-1, 1), covariates_scaled], axis=1)
-        feature_names = [config.target_col, *covariate_cols]
+        feature_names = [config.target_col, *covariate_cols, *_spline_cov_names]
+    elif _spline_cov_scaled is not None:
+        # No user covariates, but spline features are injected as covariates.
+        covariates_scaled = _spline_cov_scaled
+        covariates_raw = _spline_cov_scaled  # Already scaled; store for contract consistency.
+        features_scaled = np.concatenate([series_scaled.reshape(-1, 1), _spline_cov_scaled], axis=1)
+        feature_names = [config.target_col, *_spline_cov_names]
+        covariate_cols = _spline_cov_names
 
-        # Handle Future Covariates if any
+    # Handle future/static covariates and multivariate windowing.
+    has_covariates = features_scaled is not None
+    if has_covariates:
         if future_cols:
             f_cov_df = validated[future_cols].copy().ffill().bfill().fillna(0.0)
             f_cov_raw = f_cov_df.to_numpy(dtype=float)
             f_cov_scaled, _ = _scale_covariates_train_only(f_cov_raw, train_end=train_end, method=config.scaling)
             future_features_scaled = f_cov_scaled
 
-        # Handle Static Covariates if any
         if static_cols:
             s_cov_df = validated[static_cols].copy().ffill().bfill().fillna(0.0)
             static_features = s_cov_df.to_numpy(dtype=float)
@@ -241,6 +300,10 @@ def run_preprocessing_pipeline(
                 "static_features": static_features if static_features is not None else np.array([]),
             }
         )
+
+    # Save spline trend windows for residual recombination at inference time.
+    if y_spline_windows is not None:
+        arrays["y_spline"] = y_spline_windows
 
     np.savez_compressed(processed_path, **arrays)
 

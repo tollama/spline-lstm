@@ -69,6 +69,70 @@ class MinMaxScaler1D:
         return {"type": "minmax", "min": self.min_, "max": self.max_}
 
 
+@dataclass
+class DifferencingTransform:
+    """First-order differencing transform for stationarity.
+
+    Stores the first value so that inverse_transform can reconstruct the
+    original level.  Works on 1D arrays.
+    """
+
+    first_value_: float = 0.0
+    fitted_: bool = False
+
+    def fit(self, y: np.ndarray) -> DifferencingTransform:
+        arr = np.asarray(y, dtype=float)
+        self.first_value_ = float(arr[0])
+        self.fitted_ = True
+        return self
+
+    def transform(self, y: np.ndarray) -> np.ndarray:
+        if not self.fitted_:
+            raise RuntimeError("DifferencingTransform not fitted")
+        arr = np.asarray(y, dtype=float)
+        return np.diff(arr, prepend=arr[0])
+
+    def inverse_transform(self, y: np.ndarray) -> np.ndarray:
+        if not self.fitted_:
+            raise RuntimeError("DifferencingTransform not fitted")
+        arr = np.asarray(y, dtype=float)
+        return np.cumsum(arr)
+
+    def to_dict(self) -> dict[str, float | str]:
+        return {"type": "diff1", "first_value": self.first_value_}
+
+
+@dataclass
+class LogTransform:
+    """Log transform (log1p) for variance stabilization.
+
+    Uses ``log1p`` / ``expm1`` to handle zero values safely.
+    Requires non-negative input.
+    """
+
+    fitted_: bool = False
+
+    def fit(self, y: np.ndarray) -> LogTransform:
+        arr = np.asarray(y, dtype=float)
+        if np.any(arr < 0):
+            raise ValueError("LogTransform requires non-negative values")
+        self.fitted_ = True
+        return self
+
+    def transform(self, y: np.ndarray) -> np.ndarray:
+        if not self.fitted_:
+            raise RuntimeError("LogTransform not fitted")
+        return np.log1p(np.asarray(y, dtype=float))
+
+    def inverse_transform(self, y: np.ndarray) -> np.ndarray:
+        if not self.fitted_:
+            raise RuntimeError("LogTransform not fitted")
+        return np.expm1(np.asarray(y, dtype=float))
+
+    def to_dict(self) -> dict[str, float | str]:
+        return {"type": "log"}
+
+
 def build_scaler(method: str = "standard"):
     m = method.lower().strip()
     if m == "standard":

@@ -26,6 +26,7 @@ RUN_ML = os.environ.get("RUN_ML_TESTS", "1")  # enabled by default in CI
 # AttentionLSTMModel – covariate support
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.skipif(not RUN_ML, reason="ML tests require TensorFlow")
 def test_attention_lstm_build_with_static_and_future_covariates():
     """AttentionLSTMModel must wire static/future covariates into the graph.
@@ -98,6 +99,7 @@ def test_attention_lstm_no_covariates_baseline():
 # _ReduceSum Keras layer: save / reload round-trip
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.skipif(not RUN_ML, reason="ML tests require TensorFlow")
 def test_attention_lstm_save_reload_round_trip(tmp_path):
     """Model saved with model.save() must reload correctly and produce the
@@ -145,14 +147,17 @@ def test_attention_lstm_save_reload_round_trip(tmp_path):
     preds_after = model2.predict(X)
 
     np.testing.assert_allclose(
-        preds_before, preds_after, rtol=1e-5,
-        err_msg="Predictions differ after save/reload – _ReduceSum serialisation regression"
+        preds_before,
+        preds_after,
+        rtol=1e-5,
+        err_msg="Predictions differ after save/reload – _ReduceSum serialisation regression",
     )
 
 
 # ---------------------------------------------------------------------------
 # Trainer.denormalize_metrics
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.skipif(not RUN_ML, reason="ML tests require TensorFlow")
 @pytest.mark.parametrize("method", ["minmax", "standard"])
@@ -226,6 +231,5 @@ def test_trainer_denormalize_metrics(method: str):
     y_test_orig = results_denorm["y_test_original_scale"]
     # Original scale values should be in the neighbourhood of 100
     assert float(np.mean(y_test_orig)) > 10.0, (
-        f"[{method}] y_test_original_scale does not appear to be in original scale: "
-        f"mean={np.mean(y_test_orig):.4f}"
+        f"[{method}] y_test_original_scale does not appear to be in original scale: mean={np.mean(y_test_orig):.4f}"
     )
