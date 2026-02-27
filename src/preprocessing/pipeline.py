@@ -253,6 +253,7 @@ def run_preprocessing_pipeline(
             s_cov_df = validated[static_cols].copy().ffill().bfill().fillna(0.0)
             static_features = s_cov_df.to_numpy(dtype=float)
 
+        assert features_scaled is not None
         windowed = make_windows_multivariate(
             features=features_scaled,
             target=series_scaled,

@@ -112,7 +112,7 @@ class SplinePreprocessor:
         n_knots = min(max_knots, len(x) - 2)
         if n_knots <= 0:
             return np.array([], dtype=float)
-        return np.linspace(x[0], x[-1], n_knots + 2)[1:-1]
+        return np.linspace(x[0], x[-1], n_knots + 2)[1:-1]  # type: ignore[no-any-return]
 
     @staticmethod
     def _select_knots_curvature(x: np.ndarray, y: np.ndarray, max_knots: int, degree: int) -> np.ndarray:
@@ -145,7 +145,7 @@ class SplinePreprocessor:
         # Ensure knots are strictly inside the data range
         eps = (x[-1] - x[0]) * 1e-6
         knot_positions = np.clip(knot_positions, x[0] + eps, x[-1] - eps)
-        return np.unique(knot_positions)
+        return np.unique(knot_positions)  # type: ignore[no-any-return]
 
     def fit(self, x: np.ndarray, y: np.ndarray) -> SplinePreprocessor:
         """Fit spline to data."""
@@ -340,7 +340,7 @@ class SplinePreprocessor:
             raise RuntimeError("Spline not fitted. Call fit() first.")
         x = self._to_1d_float_array(x, "x")
         y = self._to_1d_float_array(y, "y")
-        return y - np.asarray(self._spline(x), dtype=float)
+        return y - np.asarray(self._spline(x), dtype=float)  # type: ignore[no-any-return]
 
     def extract_features(self, y: np.ndarray) -> dict:
         """Extract simple features from a spline fitted to *y*.

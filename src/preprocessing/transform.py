@@ -122,12 +122,12 @@ class LogTransform:
     def transform(self, y: np.ndarray) -> np.ndarray:
         if not self.fitted_:
             raise RuntimeError("LogTransform not fitted")
-        return np.log1p(np.asarray(y, dtype=float))
+        return np.log1p(np.asarray(y, dtype=float))  # type: ignore[no-any-return]
 
     def inverse_transform(self, y: np.ndarray) -> np.ndarray:
         if not self.fitted_:
             raise RuntimeError("LogTransform not fitted")
-        return np.expm1(np.asarray(y, dtype=float))
+        return np.expm1(np.asarray(y, dtype=float))  # type: ignore[no-any-return]
 
     def to_dict(self) -> dict[str, float | str]:
         return {"type": "log"}

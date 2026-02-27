@@ -71,11 +71,11 @@ class EnsembleForecaster:
 
     def predict_mean(self, X: np.ndarray) -> np.ndarray:
         """Ensemble prediction via simple average."""
-        return np.mean(self._collect_predictions(X), axis=0)
+        return np.mean(self._collect_predictions(X), axis=0)  # type: ignore[no-any-return]
 
     def predict_median(self, X: np.ndarray) -> np.ndarray:
         """Ensemble prediction via median (robust to outlier models)."""
-        return np.median(self._collect_predictions(X), axis=0)
+        return np.median(self._collect_predictions(X), axis=0)  # type: ignore[no-any-return]
 
     def predict_weighted(self, X: np.ndarray) -> np.ndarray:
         """Ensemble prediction using optimised weights.
@@ -124,6 +124,7 @@ class EnsembleForecaster:
         )
 
         self.weights = result.x
+        assert self.weights is not None
         logger.info(
             "Optimised ensemble weights: %s (RMSE=%.6f)",
             np.round(self.weights, 4).tolist(),

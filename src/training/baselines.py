@@ -159,7 +159,7 @@ def build_baseline_report(
     improve_naive = _improve(naive_metrics["rmse"])
     improve_ma = _improve(ma_metrics["rmse"])
 
-    report = {
+    report: dict[str, Any] = {
         # legacy keys
         "lstm": lstm_metrics,
         "naive_last": naive_metrics,

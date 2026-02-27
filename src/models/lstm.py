@@ -546,8 +546,8 @@ class _ReduceSum(layers.Layer):
     def call(self, inputs: tf.Tensor) -> tf.Tensor:  # type: ignore[override]
         return tf.reduce_sum(inputs, axis=1)
 
-    def get_config(self) -> dict:
-        return super().get_config()
+    def get_config(self) -> dict[str, Any]:
+        return super().get_config()  # type: ignore[no-any-return]
 
 
 class AttentionLSTMModel(LSTMModel):
