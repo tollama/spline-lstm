@@ -50,10 +50,10 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: "pip"
 
-      - name: Install package + dev + backend deps
+      - name: Install package + dev + backend + edge deps
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e ".[dev,backend]"
+          python -m pip install -e ".[dev,backend,edge]"
 
       - name: Run tests with coverage
         run: python -m pytest tests/ -v --tb=short --cov=src --cov-report=xml --cov-report=term-missing
@@ -64,6 +64,108 @@ jobs:
         with:
           name: coverage-report
           path: coverage.xml
+
+  edge-export-benchmark:
+    name: Edge Export & Benchmark (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11"]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+
+      - name: Install package + dev + backend + edge deps
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev,backend,edge]"
+
+      - name: Set edge CI run id
+        run: echo "RUN_ID=ci-edge-${{ matrix.python-version }}-${{ github.run_id }}-${{ github.run_attempt }}" >> "$GITHUB_ENV"
+
+      - name: Runner export (ONNX + TFLite)
+        run: |
+          python -m src.training.runner \
+            --run-id "${RUN_ID}" \
+            --synthetic \
+            --synthetic-samples 240 \
+            --epochs 1 \
+            --batch-size 16 \
+            --sequence-length 24 \
+            --horizon 12 \
+            --model-type gru \
+            --export-formats onnx,tflite \
+            --quantization fp16 \
+            --edge-profile desktop_reference \
+            --edge-sla balanced \
+            --artifacts-dir artifacts \
+            --verbose 0
+
+      - name: Edge benchmark harness
+        run: |
+          python scripts/benchmark_edge.py \
+            --run-id "${RUN_ID}" \
+            --artifacts-dir artifacts \
+            --edge-sla balanced \
+            --iterations 20 \
+            --warmup 5
+
+      - name: Validate edge artifacts contract
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          run_id = os.environ["RUN_ID"]
+          root = Path("artifacts")
+          manifest_path = root / "exports" / run_id / "manifest.json"
+          ota_manifest_path = root / "exports" / run_id / "ota_manifest.json"
+          bench_root = root / "edge_bench" / run_id
+          leaderboard_path = bench_root / "leaderboard.json"
+          required = [
+              manifest_path,
+              ota_manifest_path,
+              bench_root / "android_high_end.json",
+              bench_root / "ios_high_end.json",
+              bench_root / "desktop_reference.json",
+              leaderboard_path,
+          ]
+          missing = [str(p) for p in required if not p.exists()]
+          if missing:
+              raise SystemExit(f"missing required edge artifacts: {missing}")
+
+          manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+          runtime_compat = manifest.get("runtime_compatibility", {})
+          required_runtime_keys = {"tflite", "onnx", "keras"}
+          if not required_runtime_keys.issubset(runtime_compat.keys()):
+              raise SystemExit(f"runtime_compatibility keys invalid: {sorted(runtime_compat.keys())}")
+
+          tflite_status = manifest.get("exports", {}).get("tflite", {}).get("status")
+          if tflite_status != "succeeded":
+              raise SystemExit(f"tflite export must succeed in CI, got status={tflite_status}")
+
+          leaderboard = json.loads(leaderboard_path.read_text(encoding="utf-8"))
+          if not isinstance(leaderboard.get("results"), list) or len(leaderboard["results"]) == 0:
+              raise SystemExit("leaderboard results missing or empty")
+
+          print("edge export+benchmark contracts validated")
+          PY
+
+      - name: Upload edge artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: edge-artifacts-py${{ matrix.python-version }}
+          path: |
+            artifacts/exports/${{ env.RUN_ID }}
+            artifacts/edge_bench/${{ env.RUN_ID }}
 
   smoke-gate:
     name: Smoke Gate (Python ${{ matrix.python-version }})
@@ -81,10 +183,10 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: "pip"
 
-      - name: Install package + dev + backend deps
+      - name: Install package + dev + backend + edge deps
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e ".[dev,backend]"
+          python -m pip install -e ".[dev,backend,edge]"
 
       - name: Run smoke gate
         run: make smoke-gate
