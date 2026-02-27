@@ -75,6 +75,35 @@ To launch the FastAPI backend (with endpoints for forecasting and agent interact
 SPLINE_DEV_MODE=1 uvicorn backend.app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
+### Edge Export & Benchmark (Android+iOS Ready)
+
+You can export trained models for edge runtimes and generate benchmark reports:
+
+```bash
+# Train and export (TFLite + ONNX) with edge metadata
+python3 -m src.training.runner \
+  --run-id edge-demo-001 \
+  --synthetic \
+  --epochs 1 \
+  --model-type gru \
+  --export-formats onnx,tflite \
+  --quantization fp16 \
+  --edge-profile android_high_end \
+  --edge-sla balanced
+
+# Run edge benchmark harness
+python3 scripts/benchmark_edge.py \
+  --run-id edge-demo-001 \
+  --artifacts-dir artifacts \
+  --edge-sla balanced
+```
+
+Artifacts:
+- Export manifest: `artifacts/exports/<run_id>/manifest.json`
+- OTA manifest: `artifacts/exports/<run_id>/ota_manifest.json`
+- Device benchmark reports: `artifacts/edge_bench/<run_id>/*.json`
+- Leaderboard: `artifacts/edge_bench/<run_id>/leaderboard.json`
+
 ---
 
 ## Project Architecture

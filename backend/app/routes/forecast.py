@@ -15,9 +15,10 @@ from backend.app.models import (
     ForecastInputRequest,
     InputPatchOperation,
 )
+from backend.app.runtime import resolve_runtime_for_run
 from backend.app.store import JobRecord
 from backend.app.utils import atomic_write_text, corr, ensure_parent, utc_now_iso
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 
 router = APIRouter()
 
@@ -294,3 +295,24 @@ def validate_covariate_contract(payload: CovariateContractValidateRequest, reque
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {"ok": True, "data": {**result, "correlation": corr(request)}}
+
+
+@router.get(f"{API_PREFIX}/forecast/runtime/{{run_id}}")
+def forecast_runtime_selection(
+    run_id: str,
+    request: Request,
+    preferred: str | None = Query(default=None, description="Optional runtime preference order, e.g. tflite,onnx"),
+) -> dict[str, Any]:
+    preferred_order = [x.strip() for x in preferred.split(",") if x.strip()] if preferred else None
+    resolved = resolve_runtime_for_run(run_id=run_id, preferred_order=preferred_order)
+    return {
+        "ok": True,
+        "data": {
+            "run_id": run_id,
+            "runtime_stack": resolved["runtime_stack"],
+            "fallback_chain": resolved["fallback_chain"],
+            "manifest_path": resolved["manifest_path"],
+            "runtime_compatibility": resolved["runtime_compatibility"],
+            "correlation": corr(request, run_id=run_id),
+        },
+    }

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+import json
 import sys
 import time
 from pathlib import Path
@@ -17,6 +18,7 @@ _BACKEND_MODULES = [
     "backend.app.routes",
     "backend.app.executor",
     "backend.app.store",
+    "backend.app.runtime",
     "backend.app.utils",
     "backend.app.models",
     "backend.app.config",
@@ -108,3 +110,28 @@ def test_real_executor_cancel(tmp_path: Path, monkeypatch) -> None:
 
     done = _wait_for_terminal(client, job_id)
     assert done["status"] == "canceled"
+
+
+def test_runtime_selection_prefers_manifest_order(tmp_path: Path, monkeypatch) -> None:
+    client = _load_client(tmp_path, monkeypatch, mode="mock", cmd="")
+    run_id = "edge-runtime-001"
+    manifest_path = tmp_path / "artifacts" / "exports" / run_id / "manifest.json"
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    manifest_path.write_text(
+        json.dumps(
+            {
+                "runtime_compatibility": {
+                    "tflite": {"supported": True, "path": "a.tflite"},
+                    "onnx": {"supported": True, "path": "a.onnx"},
+                    "keras": {"supported": True, "path": None},
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    response = client.get(f"/api/v1/forecast/runtime/{run_id}", params={"preferred": "onnx,tflite,keras"})
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert data["runtime_stack"] == "onnx"
+    assert data["fallback_chain"][0] == "onnx"

@@ -16,9 +16,23 @@ from typing import Any, cast
 import numpy as np
 
 from src.covariates.spec import enforce_covariate_spec, load_covariate_spec
-from src.models.lstm import BACKEND, GRUModel, LSTMModel
+from src.models.dlinear import DLinearLikeModel
+from src.models.lstm import BACKEND, AttentionLSTMModel, GRUModel, LSTMModel
 from src.models.tcn import TCNModel
 from src.training.baselines import Phase3BaselineComparisonError, build_baseline_report
+from src.training.edge import (
+    build_ota_manifest,
+    build_runtime_compatibility,
+    compute_parity,
+    export_onnx_model,
+    export_tflite_model,
+    extract_input_specs,
+    load_device_profiles,
+    parse_edge_sla,
+    run_onnx_inference,
+    run_tflite_inference,
+    select_runtime_stack,
+)
 from src.training.trainer import Trainer
 from src.utils.repro import build_phase3_run_metadata, build_run_metadata, get_git_commit_info, set_global_seed
 from src.utils.run_id import validate_run_id
@@ -453,13 +467,131 @@ def _build_callbacks(checkpoint_dir: Path):
     return []
 
 
+def _materialize_model_inputs(X: Any) -> list[np.ndarray]:
+    if isinstance(X, list):
+        out = [np.asarray(x, dtype=np.float32) for x in X if x is not None]
+    else:
+        out = [np.asarray(X, dtype=np.float32)]
+    if not out:
+        raise ValueError("cannot materialize empty model inputs")
+    return out
+
+
+def _export_edge_artifacts(
+    *,
+    model_wrapper: Any,
+    run_id: str,
+    model_type: str,
+    artifacts_base: Path,
+    requested_formats: list[str],
+    quantization: str,
+    edge_profile: str,
+    edge_sla: str,
+    device_benchmark_config: str | None,
+    sample_inputs: Any,
+    reference_prediction: np.ndarray,
+    semantic_version: str,
+    min_app_version: str,
+    ota_model_id: str,
+) -> tuple[dict[str, Any], dict[str, Any], Path, Path]:
+    exports_root = artifacts_base / "exports" / run_id
+    model_root = exports_root / model_type
+    exports_root.mkdir(parents=True, exist_ok=True)
+
+    profiles = load_device_profiles(device_benchmark_config)
+    if edge_profile not in profiles:
+        raise ValueError(f"unknown edge profile: {edge_profile}")
+    sla_cfg = parse_edge_sla(edge_sla)
+
+    keras_model = getattr(model_wrapper, "model", None)
+    if keras_model is None:
+        raise RuntimeError("export requested but model is not built")
+
+    sample_input_list = _materialize_model_inputs(sample_inputs)
+    export_results: dict[str, dict[str, Any]] = {}
+
+    if "tflite" in requested_formats:
+        tflite_path = model_root / "tflite" / "model.tflite"
+        export_results["tflite"] = export_tflite_model(
+            keras_model,
+            tflite_path,
+            quantization=quantization,
+            calibration_inputs=sample_input_list,
+        )
+    else:
+        export_results["tflite"] = {"status": "skipped", "reason": "not requested"}
+
+    if "onnx" in requested_formats:
+        onnx_path = model_root / "onnx" / "model.onnx"
+        export_results["onnx"] = export_onnx_model(keras_model, onnx_path)
+    else:
+        export_results["onnx"] = {"status": "skipped", "reason": "not requested"}
+
+    parity: dict[str, Any] = {}
+    reference = np.asarray(reference_prediction, dtype=np.float32).reshape(-1)
+    for runtime_name in ("tflite", "onnx"):
+        result = export_results.get(runtime_name, {})
+        if result.get("status") != "succeeded":
+            continue
+        model_path = Path(str(result["path"]))
+        try:
+            if runtime_name == "tflite":
+                pred = run_tflite_inference(model_path, sample_input_list)
+            else:
+                pred = run_onnx_inference(model_path, sample_input_list)
+            parity[runtime_name] = compute_parity(reference=reference, candidate=np.asarray(pred, dtype=np.float32))
+        except Exception as exc:  # pragma: no cover - runtime dependent
+            parity[runtime_name] = {"error": str(exc)}
+
+    runtime_compatibility = build_runtime_compatibility(export_results)
+    runtime_stack, fallback_chain = select_runtime_stack(runtime_compatibility)
+    selected_path = runtime_compatibility.get(runtime_stack, {}).get("path")
+
+    ota_manifest = build_ota_manifest(
+        run_id=run_id,
+        model_id=ota_model_id,
+        semantic_version=semantic_version,
+        min_app_version=min_app_version,
+        target_runtime=runtime_stack,
+        rollback_to=None,
+        target_path=selected_path,
+    )
+
+    manifest = {
+        "run_id": run_id,
+        "model_type": model_type,
+        "generated_at": datetime.now().isoformat(),
+        "edge_profile": edge_profile,
+        "edge_sla": edge_sla,
+        "edge_sla_config": sla_cfg,
+        "device_profiles": profiles,
+        "quantization": quantization,
+        "requested_formats": requested_formats,
+        "input_specs": extract_input_specs(keras_model),
+        "exports": export_results,
+        "runtime_compatibility": runtime_compatibility,
+        "runtime_stack": runtime_stack,
+        "fallback_chain": fallback_chain,
+        "parity": parity,
+        "ota_manifest": ota_manifest,
+    }
+
+    manifest_path = exports_root / "manifest.json"
+    ota_manifest_path = exports_root / "ota_manifest.json"
+    _write_json(manifest_path, manifest)
+    _write_json(ota_manifest_path, ota_manifest)
+    return manifest, ota_manifest, manifest_path, ota_manifest_path
+
+
 def _build_model(
     args: argparse.Namespace, output_units: int, input_features: int, static_features: int = 0, future_features: int = 0
 ):
     model_map = {
         "lstm": LSTMModel,
         "gru": GRUModel,
+        "attention_lstm": AttentionLSTMModel,
         "tcn": TCNModel,
+        "dlinear": DLinearLikeModel,
     }
     model_cls = model_map.get(args.model_type, LSTMModel)
 
@@ -539,6 +671,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     static_covariates = covariate_contract["static_covariates"]
     covariate_spec = covariate_contract["spec"]
     export_formats = _parse_export_formats(args.export_formats)
+    requested_edge_formats = [fmt for fmt in export_formats if fmt != "none"]
 
     base = Path(args.artifacts_dir)
     checkpoint_base = Path(args.checkpoints_dir) if args.checkpoints_dir else (base / "checkpoints")
@@ -692,10 +825,27 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         model.save(str(best_ckpt_h5))
         shutil.copy2(best_ckpt_h5, best_ckpt)
 
-    x_last = X_test[-1:]
+    x_last = [x[-1:] if x is not None else None for x in X_test] if isinstance(X_test, list) else X_test[-1:]
     y_true_last = y_test[-1]
     y_pred_last = y_pred[-1]
     _write_predictions_csv(predictions_path, run_id=run_id, y_pred_last=y_pred_last)
+
+    export_manifest, ota_manifest, export_manifest_path, ota_manifest_path = _export_edge_artifacts(
+        model_wrapper=model,
+        run_id=run_id,
+        model_type=args.model_type,
+        artifacts_base=base,
+        requested_formats=requested_edge_formats,
+        quantization=args.quantization,
+        edge_profile=args.edge_profile,
+        edge_sla=args.edge_sla,
+        device_benchmark_config=args.device_benchmark_config,
+        sample_inputs=x_last,
+        reference_prediction=np.asarray(y_pred_last, dtype=np.float32),
+        semantic_version=args.semantic_version,
+        min_app_version=args.min_app_version,
+        ota_model_id=args.ota_model_id or f"spline-lstm-{args.model_type}",
+    )
 
     if "evaluation_context" not in baselines_obj:
         baselines_obj["evaluation_context"] = {
@@ -733,6 +883,15 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "covariate_spec": covariate_spec,
         "covariate_contract": covariate_contract,
         "export_formats": export_formats,
+        "edge_profile": args.edge_profile,
+        "edge_sla": args.edge_sla,
+        "quantization": args.quantization,
+        "device_benchmark_config": args.device_benchmark_config,
+        "semantic_version": args.semantic_version,
+        "min_app_version": args.min_app_version,
+        "ota_model_id": args.ota_model_id,
+        "export_manifest_path": str(export_manifest_path),
+        "ota_manifest_path": str(ota_manifest_path),
     }
     run_metadata = build_run_metadata(run_id=run_id, seed_info=seed_info, config=config_snapshot, repo_dir=".")
     runmeta_v1 = build_phase3_run_metadata(
@@ -786,6 +945,15 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "metadata_path": str(metadata_path),
         "runmeta_path": str(runmeta_path),
         "covariate_schema": covariate_contract,
+        "exports": {
+            "manifest_path": str(export_manifest_path),
+            "ota_manifest_path": str(ota_manifest_path),
+            "runtime_stack": export_manifest.get("runtime_stack"),
+            "fallback_chain": export_manifest.get("fallback_chain"),
+            "formats": export_manifest.get("exports"),
+            "parity": export_manifest.get("parity"),
+        },
+        "ota": ota_manifest,
     }
 
     _write_json(metrics_path, payload)
@@ -818,6 +986,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
 - batch_size: {args.batch_size}
 - normalize: {args.normalize} ({args.normalize_method})
 - seed: {args.seed}
+- edge_profile: {args.edge_profile}
+- edge_sla: {args.edge_sla}
+- quantization: {args.quantization}
+- export_formats: {export_formats}
 
 ## Evaluation Metrics
 - MAE: {results["metrics"]["mae"]:.6f}
@@ -850,6 +1022,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
 - metrics: `{metrics_path}`
 - baselines: `{baseline_path}`
 - report: `{report_path}`
+- export manifest: `{export_manifest_path}`
+- OTA manifest: `{ota_manifest_path}`
 """
     _write_report(report_path, report)
 
@@ -924,7 +1098,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     # Phase 5 extension contract (backward compatible defaults)
-    p.add_argument("--model-type", type=str, choices=["lstm", "gru", "attention_lstm", "tcn"], default="lstm")
+    p.add_argument(
+        "--model-type", type=str, choices=["lstm", "gru", "attention_lstm", "tcn", "dlinear"], default="lstm"
+    )
     p.add_argument("--feature-mode", type=str, choices=["univariate", "multivariate"], default="univariate")
     p.add_argument("--target-cols", type=str, default="target")
     p.add_argument("--dynamic-covariates", type=str, default="")
@@ -933,6 +1109,18 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--covariate-spec", type=str, default=None)
     p.add_argument("--cv-splits", type=int, default=0, help="Number of splits for time-series cross-validation")
     p.add_argument("--export-formats", type=str, default="none")
+    p.add_argument("--edge-profile", type=str, default="desktop_reference")
+    p.add_argument(
+        "--edge-sla",
+        type=str,
+        choices=["balanced", "accuracy_biased", "latency_biased"],
+        default="balanced",
+    )
+    p.add_argument("--quantization", type=str, choices=["none", "fp16", "int8"], default="fp16")
+    p.add_argument("--device-benchmark-config", type=str, default=None)
+    p.add_argument("--semantic-version", type=str, default="1.0.0")
+    p.add_argument("--min-app-version", type=str, default="1.0.0")
+    p.add_argument("--ota-model-id", type=str, default=None)
 
     p.add_argument("--epochs", type=int, default=10)
     p.add_argument("--batch-size", type=int, default=32)

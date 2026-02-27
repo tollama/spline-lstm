@@ -146,3 +146,12 @@ def test_phase6_covariate_contract_and_readiness() -> None:
     body = readiness.json()["data"]
     assert "rollout_stage" in body
     assert "kill_switches" in body
+
+
+def test_phase6_runtime_selection_contract() -> None:
+    runtime = client.get("/api/v1/forecast/runtime/nonexistent-run")
+    assert runtime.status_code == 200
+    data = runtime.json()["data"]
+    assert data["runtime_stack"] == "keras"
+    assert "fallback_chain" in data
+    assert "runtime_compatibility" in data

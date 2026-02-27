@@ -113,13 +113,19 @@ def test_phase5_extension_smoke_processed_only_path(tmp_path: Path):
     metrics_path = artifacts / "metrics" / f"{run_id}.json"
     report_path = artifacts / "reports" / f"{run_id}.md"
     best_path = artifacts / "checkpoints" / run_id / "best.keras"
+    export_manifest_path = artifacts / "exports" / run_id / "manifest.json"
+    ota_manifest_path = artifacts / "exports" / run_id / "ota_manifest.json"
 
     assert metrics_path.exists()
     assert report_path.exists()
     assert best_path.exists()
+    assert export_manifest_path.exists()
+    assert ota_manifest_path.exists()
 
     payload = json.loads(metrics_path.read_text(encoding="utf-8"))
     assert payload["run_id"] == run_id
     assert payload["preprocessor"] == str(artifacts / "models" / run_id / "preprocessor.pkl")
     for k in ("mae", "rmse", "mape", "r2"):
         assert k in payload["metrics"]
+    assert payload["exports"]["manifest_path"] == str(export_manifest_path)
+    assert "runtime_stack" in payload["exports"]

@@ -1,0 +1,87 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import pytest
+from src.training.edge import (
+    build_runtime_compatibility,
+    compute_accuracy_score,
+    compute_edge_score,
+    compute_latency_score,
+    compute_size_score,
+    compute_stability_score,
+    load_device_profiles,
+    parse_edge_sla,
+    select_runtime_stack,
+)
+
+
+def test_parse_edge_sla_known_presets() -> None:
+    balanced = parse_edge_sla("balanced")
+    assert balanced["accuracy_weight"] == pytest.approx(0.45)
+    assert balanced["latency_weight"] == pytest.approx(0.30)
+    assert balanced["size_weight"] == pytest.approx(0.15)
+    assert balanced["stability_weight"] == pytest.approx(0.10)
+
+    with pytest.raises(ValueError):
+        parse_edge_sla("unknown")
+
+
+def test_runtime_selection_prefers_supported_order() -> None:
+    runtime_compat = {
+        "tflite": {"supported": False},
+        "onnx": {"supported": True},
+        "keras": {"supported": True},
+    }
+    runtime, fallback = select_runtime_stack(runtime_compat, preferred_order=["tflite", "onnx", "keras"])
+    assert runtime == "onnx"
+    assert fallback == ["onnx", "keras"]
+
+
+def test_build_runtime_compatibility_matrix() -> None:
+    matrix = build_runtime_compatibility(
+        {
+            "tflite": {"status": "succeeded", "path": "a.tflite"},
+            "onnx": {"status": "failed", "error": "missing tf2onnx"},
+        }
+    )
+    assert matrix["tflite"]["supported"] is True
+    assert matrix["onnx"]["supported"] is False
+    assert matrix["keras"]["supported"] is True
+
+
+def test_edge_score_components_and_weighted_total() -> None:
+    sla = parse_edge_sla("balanced")
+    acc = compute_accuracy_score(
+        model_rmse=0.95, baseline_rmse=1.0, allowed_degradation_pct=sla["max_rmse_degradation_pct"]
+    )
+    lat = compute_latency_score(latency_p95_ms=45.0, target_ms=50.0)
+    siz = compute_size_score(size_mb=6.0, target_mb=8.0, hard_limit_mb=15.0)
+    st = compute_stability_score(failures=0, attempts=1000)
+    score = compute_edge_score(
+        accuracy_score=acc,
+        latency_score=lat,
+        size_score=siz,
+        stability_score=st,
+        sla=sla,
+    )
+    assert score > 90.0
+
+
+def test_load_device_profiles_merges_user_profiles(tmp_path: Path) -> None:
+    cfg = tmp_path / "devices.json"
+    cfg.write_text(
+        json.dumps(
+            {
+                "profiles": {
+                    "android_high_end": {"latency_p95_target_ms": 40},
+                    "custom_device": {"runtime_order": ["onnx", "keras"], "latency_p95_target_ms": 60},
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    profiles = load_device_profiles(str(cfg))
+    assert profiles["android_high_end"]["latency_p95_target_ms"] == 40
+    assert profiles["custom_device"]["runtime_order"] == ["onnx", "keras"]

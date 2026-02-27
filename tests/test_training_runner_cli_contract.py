@@ -42,6 +42,9 @@ def test_runner_parser_defaults_still_valid_without_legacy_flags():
     assert args.feature_mode == "univariate"
     assert args.target_cols == "target"
     assert args.run_id_validation == "legacy"
+    assert args.edge_profile == "desktop_reference"
+    assert args.edge_sla == "balanced"
+    assert args.quantization == "fp16"
 
 
 def test_runner_parser_accepts_strict_run_id_validation_mode():
@@ -55,7 +58,7 @@ def test_runner_parser_accepts_phase5_extension_flags():
     args = parser.parse_args(
         [
             "--model-type",
-            "gru",
+            "dlinear",
             "--feature-mode",
             "multivariate",
             "--target-cols",
@@ -68,13 +71,31 @@ def test_runner_parser_accepts_phase5_extension_flags():
             "configs/covariates/default.schema.json",
             "--export-formats",
             "onnx,tflite",
+            "--edge-profile",
+            "android_high_end",
+            "--edge-sla",
+            "latency_biased",
+            "--quantization",
+            "int8",
+            "--semantic-version",
+            "1.2.3",
+            "--min-app-version",
+            "1.1.0",
+            "--ota-model-id",
+            "spline-dlinear-edge",
         ]
     )
 
-    assert args.model_type == "gru"
+    assert args.model_type == "dlinear"
     assert args.feature_mode == "multivariate"
     assert args.target_cols == "target_a,target_b"
     assert args.dynamic_covariates == "temp,promo"
     assert args.static_covariates == "store_id"
     assert args.covariate_spec.endswith("default.schema.json")
     assert args.export_formats == "onnx,tflite"
+    assert args.edge_profile == "android_high_end"
+    assert args.edge_sla == "latency_biased"
+    assert args.quantization == "int8"
+    assert args.semantic_version == "1.2.3"
+    assert args.min_app_version == "1.1.0"
+    assert args.ota_model_id == "spline-dlinear-edge"

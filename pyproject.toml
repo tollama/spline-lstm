@@ -48,14 +48,18 @@ dev = [
     "mypy>=1.0.0",
     "pre-commit>=3.0.0",
 ]
+edge = [
+    "tf2onnx>=1.16.0",
+    "onnxruntime>=1.17.0",
+]
 
 [project.scripts]
 spline-lstm = "src.training.runner:main"
 
 [project.urls]
-Homepage = "https://github.com/ychoi-atop/spline-lstm"
-Repository = "https://github.com/ychoi-atop/spline-lstm.git"
-Issues = "https://github.com/ychoi-atop/spline-lstm/issues"
+Homepage = "https://github.com/tollama/spline-lstm"
+Repository = "https://github.com/tollama/spline-lstm.git"
+Issues = "https://github.com/tollama/spline-lstm/issues"
 
 [tool.setuptools.packages.find]
 where = ["."]
