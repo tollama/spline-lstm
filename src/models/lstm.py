@@ -42,6 +42,84 @@ except ImportError as exc:  # pragma: no cover – CI ensures TF is installed.
 DEFAULT_DROPOUT = 0.2
 BACKEND = "tensorflow"
 
+SUPPORTED_LOSSES = ("mse", "mae", "huber", "quantile_50", "quantile_10", "quantile_90")
+SUPPORTED_LR_SCHEDULES = ("none", "cosine", "reduce_on_plateau", "exponential")
+
+
+# ---------------------------------------------------------------------------
+# Custom loss functions (Keras-serializable)
+# ---------------------------------------------------------------------------
+@keras.utils.register_keras_serializable(package="spline_lstm")
+class HuberLoss(keras.losses.Loss):
+    """Huber loss — robust to outliers while sensitive near zero."""
+
+    def __init__(self, delta: float = 1.0, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self.delta = delta
+
+    def call(self, y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
+        return tf.keras.losses.huber(y_true, y_pred, delta=self.delta)
+
+    def get_config(self) -> dict:
+        return {**super().get_config(), "delta": self.delta}
+
+
+@keras.utils.register_keras_serializable(package="spline_lstm")
+class QuantileLoss(keras.losses.Loss):
+    """Pinball (quantile) loss for asymmetric error penalization."""
+
+    def __init__(self, quantile: float = 0.5, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self.quantile = quantile
+
+    def call(self, y_true: tf.Tensor, y_pred: tf.Tensor) -> tf.Tensor:
+        error = y_true - y_pred
+        return tf.reduce_mean(tf.maximum(self.quantile * error, (self.quantile - 1.0) * error))
+
+    def get_config(self) -> dict:
+        return {**super().get_config(), "quantile": self.quantile}
+
+
+def _resolve_loss(loss_name: str) -> str | keras.losses.Loss:
+    """Map a loss name string to a Keras loss object or built-in string."""
+    if loss_name in ("mse", "mae"):
+        return loss_name
+    if loss_name == "huber":
+        return HuberLoss(delta=1.0)
+    if loss_name.startswith("quantile_"):
+        q = int(loss_name.split("_")[1]) / 100.0
+        return QuantileLoss(quantile=q)
+    raise ValueError(f"Unsupported loss: {loss_name!r}. Choose from {SUPPORTED_LOSSES}")
+
+
+def _build_optimizer(
+    learning_rate: float,
+    lr_schedule: str,
+    total_steps: int | None = None,
+) -> keras.optimizers.Optimizer:
+    """Build Adam optimizer with optional LR schedule."""
+    if lr_schedule == "none" or lr_schedule is None:
+        return keras.optimizers.Adam(learning_rate=learning_rate)
+    if lr_schedule == "cosine":
+        steps = total_steps or 1000
+        schedule = keras.optimizers.schedules.CosineDecay(
+            initial_learning_rate=learning_rate,
+            decay_steps=steps,
+            alpha=learning_rate * 0.01,
+        )
+        return keras.optimizers.Adam(learning_rate=schedule)
+    if lr_schedule == "exponential":
+        schedule = keras.optimizers.schedules.ExponentialDecay(
+            initial_learning_rate=learning_rate,
+            decay_steps=500,
+            decay_rate=0.96,
+        )
+        return keras.optimizers.Adam(learning_rate=schedule)
+    if lr_schedule == "reduce_on_plateau":
+        # ReduceLROnPlateau is a callback, not a schedule — use fixed lr here
+        return keras.optimizers.Adam(learning_rate=learning_rate)
+    raise ValueError(f"Unsupported lr_schedule: {lr_schedule!r}. Choose from {SUPPORTED_LR_SCHEDULES}")
+
 
 # ---------------------------------------------------------------------------
 # Validation helpers
@@ -93,6 +171,12 @@ class LSTMModel:
         input_features: int = 1,
         static_features: int = 0,
         future_features: int = 0,
+        loss: str = "mse",
+        lr_schedule: str = "none",
+        l2_reg: float = 0.0,
+        recurrent_dropout: float = 0.0,
+        use_residual: bool = False,
+        use_layer_norm: bool = False,
     ) -> None:
         self.sequence_length = sequence_length
         self.hidden_units = hidden_units or [128, 64]
@@ -102,6 +186,12 @@ class LSTMModel:
         self.input_features = input_features
         self.static_features = static_features
         self.future_features = future_features
+        self.loss = loss
+        self.lr_schedule = lr_schedule
+        self.l2_reg = l2_reg
+        self.recurrent_dropout = recurrent_dropout
+        self.use_residual = use_residual
+        self.use_layer_norm = use_layer_norm
         self.model: Model | None = None
         self.history: dict[str, Any] | None = None
 
@@ -162,18 +252,45 @@ class LSTMModel:
     # ---------------------------------------------------------------------
     # Model construction helpers
     # ---------------------------------------------------------------------
+    def _get_regularizer(self) -> keras.regularizers.Regularizer | None:
+        """Return L2 regularizer if l2_reg > 0, else None."""
+        if self.l2_reg > 0:
+            return keras.regularizers.l2(self.l2_reg)
+        return None
+
     def _build_lstm_stack(self, inputs: list[tf.keras.layers.Layer]) -> tf.keras.layers.Layer:
         """Construct the shared LSTM backbone.
 
         Returns the final tensor after the LSTM stack (before any covariate
         concatenation). ``inputs`` is a list containing the past input layer.
+
+        When ``use_residual=True``, a skip connection is added around each LSTM
+        layer (with a projection Dense when input/output dimensions differ).
+        When ``use_layer_norm=True``, LayerNormalization is applied after each
+        LSTM output (before the residual add).
         """
+        reg = self._get_regularizer()
         x = inputs[0]
         for i, units in enumerate(self.hidden_units):
             return_seq = i < len(self.hidden_units) - 1
-            x = layers.LSTM(units, return_sequences=return_seq, name=f"lstm_{i + 1}")(x)
+            skip = x  # stash for residual
+            x = layers.LSTM(
+                units,
+                return_sequences=return_seq,
+                kernel_regularizer=reg,
+                recurrent_dropout=self.recurrent_dropout,
+                name=f"lstm_{i + 1}",
+            )(x)
+            if self.use_layer_norm:
+                x = layers.LayerNormalization(name=f"layer_norm_{i + 1}")(x)
             if self.dropout > 0:
                 x = layers.Dropout(self.dropout, name=f"dropout_{i + 1}")(x)
+            if self.use_residual and return_seq:
+                # Project skip to match LSTM output dim if needed
+                skip_dim = skip.shape[-1]
+                if skip_dim != units:
+                    skip = layers.Dense(units, name=f"residual_proj_{i + 1}")(skip)
+                x = layers.Add(name=f"residual_add_{i + 1}")([x, skip])
         return x
 
     # ---------------------------------------------------------------------
@@ -204,18 +321,23 @@ class LSTMModel:
         x = layers.Concatenate(name="feature_concat")(concat_tensors) if len(concat_tensors) > 1 else concat_tensors[0]
         output = layers.Dense(self.output_units, name="output")(x)
         self.model = Model(inputs=model_inputs, outputs=output, name=self._model_name)
-        self.model.compile(
-            optimizer=keras.optimizers.Adam(learning_rate=self.learning_rate),
-            loss="mse",
-            metrics=["mae"],
-        )
+        self._compile_model()
         logger.info(
-            "Built %s – past=%d, static=%d, future=%d",
+            "Built %s – past=%d, static=%d, future=%d, loss=%s, lr_schedule=%s",
             self._model_name,
             self.input_features,
             self.static_features,
             self.future_features,
+            self.loss,
+            self.lr_schedule,
         )
+
+    def _compile_model(self, total_steps: int | None = None) -> None:
+        """Compile the model with the configured loss and optimizer."""
+        assert self.model is not None
+        optimizer = _build_optimizer(self.learning_rate, self.lr_schedule, total_steps=total_steps)
+        loss = _resolve_loss(self.loss)
+        self.model.compile(optimizer=optimizer, loss=loss, metrics=["mae"])
 
     def fit_model(
         self,
@@ -238,12 +360,25 @@ class LSTMModel:
         if validation_data is not None:
             X_val, y_val = validation_data
             self._validate_xy(X_val, y_val)
+
+        # Recompile with cosine schedule if total steps are now known.
+        n_samples = X[0].shape[0] if isinstance(X, list) else X.shape[0]
+        total_steps = (n_samples // max(batch_size, 1)) * epochs
         if self.model is None:
             self.build()
         assert self.model is not None
+        if self.lr_schedule in ("cosine", "exponential"):
+            self._compile_model(total_steps=total_steps)
+
         callbacks = []
         if early_stopping:
             callbacks.append(keras.callbacks.EarlyStopping(monitor="val_loss", patience=10, restore_best_weights=True))
+        if self.lr_schedule == "reduce_on_plateau":
+            callbacks.append(
+                keras.callbacks.ReduceLROnPlateau(
+                    monitor="val_loss", factor=0.5, patience=5, min_lr=self.learning_rate * 0.01
+                )
+            )
         if extra_callbacks:
             callbacks.extend(extra_callbacks)
         fit_history = self.model.fit(
@@ -319,11 +454,7 @@ class LSTMModel:
                 resolved = h5_candidate
 
         self.model = keras.models.load_model(resolved, compile=False)
-        self.model.compile(
-            optimizer=keras.optimizers.Adam(learning_rate=self.learning_rate),
-            loss="mse",
-            metrics=["mae"],
-        )
+        self._compile_model()
         logger.info("Model loaded from %s", resolved)
 
 
@@ -340,12 +471,30 @@ class BidirectionalLSTMModel(LSTMModel):
     _model_name = "bilstm_forecaster"
 
     def _build_lstm_stack(self, inputs: list[tf.keras.layers.Layer]) -> tf.keras.layers.Layer:
+        reg = self._get_regularizer()
         x = inputs[0]
         for i, units in enumerate(self.hidden_units):
             return_seq = i < len(self.hidden_units) - 1
-            x = layers.Bidirectional(layers.LSTM(units, return_sequences=return_seq), name=f"bilstm_{i + 1}")(x)
+            skip = x
+            x = layers.Bidirectional(
+                layers.LSTM(
+                    units,
+                    return_sequences=return_seq,
+                    kernel_regularizer=reg,
+                    recurrent_dropout=self.recurrent_dropout,
+                ),
+                name=f"bilstm_{i + 1}",
+            )(x)
+            if self.use_layer_norm:
+                x = layers.LayerNormalization(name=f"layer_norm_{i + 1}")(x)
             if self.dropout > 0:
                 x = layers.Dropout(self.dropout, name=f"dropout_{i + 1}")(x)
+            if self.use_residual and return_seq:
+                out_dim = units * 2  # Bidirectional doubles the output dim
+                skip_dim = skip.shape[-1]
+                if skip_dim != out_dim:
+                    skip = layers.Dense(out_dim, name=f"residual_proj_{i + 1}")(skip)
+                x = layers.Add(name=f"residual_add_{i + 1}")([x, skip])
         return x
 
 
@@ -359,12 +508,27 @@ class GRUModel(LSTMModel):
     _model_name = "gru_forecaster"
 
     def _build_lstm_stack(self, inputs: list[tf.keras.layers.Layer]) -> tf.keras.layers.Layer:
+        reg = self._get_regularizer()
         x = inputs[0]
         for i, units in enumerate(self.hidden_units):
             return_seq = i < len(self.hidden_units) - 1
-            x = layers.GRU(units, return_sequences=return_seq, name=f"gru_{i + 1}")(x)
+            skip = x
+            x = layers.GRU(
+                units,
+                return_sequences=return_seq,
+                kernel_regularizer=reg,
+                recurrent_dropout=self.recurrent_dropout,
+                name=f"gru_{i + 1}",
+            )(x)
+            if self.use_layer_norm:
+                x = layers.LayerNormalization(name=f"layer_norm_{i + 1}")(x)
             if self.dropout > 0:
                 x = layers.Dropout(self.dropout, name=f"dropout_{i + 1}")(x)
+            if self.use_residual and return_seq:
+                skip_dim = skip.shape[-1]
+                if skip_dim != units:
+                    skip = layers.Dense(units, name=f"residual_proj_{i + 1}")(skip)
+                x = layers.Add(name=f"residual_add_{i + 1}")([x, skip])
         return x
 
 
@@ -394,25 +558,65 @@ class AttentionLSTMModel(LSTMModel):
     concatenation strategy used in ``LSTMModel``.
     """
 
-    def __init__(self, attention_units: int = 64, **kwargs: Any) -> None:
+    def __init__(self, attention_units: int = 64, num_heads: int = 1, **kwargs: Any) -> None:
         super().__init__(**kwargs)
         self.attention_units = attention_units
+        self.num_heads = num_heads
 
     def _build_lstm_stack(self, inputs: list[tf.keras.layers.Layer]) -> tf.keras.layers.Layer:
         """LSTM stack that keeps sequences for the attention layer."""
+        reg = self._get_regularizer()
         x = inputs[0]
         for i, units in enumerate(self.hidden_units[:-1]):
-            x = layers.LSTM(units, return_sequences=True, name=f"lstm_{i + 1}")(x)
+            skip = x
+            x = layers.LSTM(
+                units,
+                return_sequences=True,
+                kernel_regularizer=reg,
+                recurrent_dropout=self.recurrent_dropout,
+                name=f"lstm_{i + 1}",
+            )(x)
+            if self.use_layer_norm:
+                x = layers.LayerNormalization(name=f"layer_norm_{i + 1}")(x)
             if self.dropout > 0:
                 x = layers.Dropout(self.dropout, name=f"dropout_{i + 1}")(x)
+            if self.use_residual:
+                skip_dim = skip.shape[-1]
+                if skip_dim != units:
+                    skip = layers.Dense(units, name=f"residual_proj_{i + 1}")(skip)
+                x = layers.Add(name=f"residual_add_{i + 1}")([x, skip])
         # Final LSTM must return sequences so the attention layer can score each step.
-        x = layers.LSTM(self.hidden_units[-1], return_sequences=True, name="lstm_last")(x)
-        # Attention mechanism
-        att_hidden = layers.Dense(self.attention_units, activation="tanh", name="attention_hidden")(x)
-        att_scores = layers.Dense(1, name="attention_scores")(att_hidden)
-        att_weights = layers.Softmax(axis=1, name="attention_weights")(att_scores)
-        context = layers.Multiply(name="attention_weighted")([x, att_weights])
-        context = _ReduceSum(name="attention_context")(context)
+        skip = x
+        x = layers.LSTM(
+            self.hidden_units[-1],
+            return_sequences=True,
+            kernel_regularizer=reg,
+            recurrent_dropout=self.recurrent_dropout,
+            name="lstm_last",
+        )(x)
+        if self.use_layer_norm:
+            x = layers.LayerNormalization(name="layer_norm_last")(x)
+        if self.use_residual:
+            skip_dim = skip.shape[-1]
+            if skip_dim != self.hidden_units[-1]:
+                skip = layers.Dense(self.hidden_units[-1], name="residual_proj_last")(skip)
+            x = layers.Add(name="residual_add_last")([x, skip])
+        # Attention mechanism: multi-head (WI-13) or single-head additive
+        if self.num_heads > 1:
+            # Multi-head self-attention over the LSTM sequence
+            attn_out = layers.MultiHeadAttention(
+                num_heads=self.num_heads,
+                key_dim=self.attention_units // self.num_heads,
+                name="multi_head_attention",
+            )(x, x)
+            context = layers.GlobalAveragePooling1D(name="attention_pool")(attn_out)
+        else:
+            # Legacy single-head additive (Bahdanau-style) attention
+            att_hidden = layers.Dense(self.attention_units, activation="tanh", name="attention_hidden")(x)
+            att_scores = layers.Dense(1, name="attention_scores")(att_hidden)
+            att_weights = layers.Softmax(axis=1, name="attention_weights")(att_scores)
+            context = layers.Multiply(name="attention_weighted")([x, att_weights])
+            context = _ReduceSum(name="attention_context")(context)
         return context
 
     def build(self) -> None:
@@ -434,14 +638,11 @@ class AttentionLSTMModel(LSTMModel):
         x = layers.Concatenate(name="feature_concat")(concat_tensors) if len(concat_tensors) > 1 else concat_tensors[0]
         output = layers.Dense(self.output_units, name="output")(x)
         self.model = Model(inputs=model_inputs, outputs=output, name="attention_lstm_forecaster")
-        self.model.compile(
-            optimizer=keras.optimizers.Adam(learning_rate=self.learning_rate),
-            loss="mse",
-            metrics=["mae"],
-        )
+        self._compile_model()
         logger.info(
-            "Built Attention LSTM model – past=%d, static=%d, future=%d",
+            "Built Attention LSTM model – past=%d, static=%d, future=%d, loss=%s",
             self.input_features,
             self.static_features,
             self.future_features,
+            self.loss,
         )

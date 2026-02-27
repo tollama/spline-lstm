@@ -49,20 +49,38 @@ class SplinePreprocessor:
             If your series has unusually high amplitude variance you may need to
             lower this value, and vice-versa.
     num_knots : int
-        Unused (reserved for future knot-placement strategies).
+        Maximum number of interior knots (budget) for adaptive/uniform strategies.
+    knot_strategy : str
+        ``"auto"`` (scipy default), ``"curvature"`` (adaptive placement based
+        on second-derivative density), or ``"uniform"`` (evenly spaced knots).
+    smoothing_method : str
+        ``"legacy"`` uses UnivariateSpline + optional Savitzky-Golay.
+        ``"pspline"`` uses ``scipy.interpolate.make_smoothing_spline`` for
+        integrated penalised B-spline smoothing (requires scipy >= 1.11).
     """
+
+    KNOT_STRATEGIES = ("auto", "curvature", "uniform")
+    SMOOTHING_METHODS = ("legacy", "pspline")
 
     def __init__(
         self,
         degree: int = 3,
         smoothing_factor: float = 0.5,
         num_knots: int = 10,
+        knot_strategy: str = "auto",
+        smoothing_method: str = "legacy",
     ):
         if smoothing_factor < 0:
             raise ValueError(f"smoothing_factor must be >= 0, got {smoothing_factor}")
+        if knot_strategy not in self.KNOT_STRATEGIES:
+            raise ValueError(f"knot_strategy must be one of {self.KNOT_STRATEGIES}, got {knot_strategy!r}")
+        if smoothing_method not in self.SMOOTHING_METHODS:
+            raise ValueError(f"smoothing_method must be one of {self.SMOOTHING_METHODS}, got {smoothing_method!r}")
         self.degree = degree
         self.smoothing_factor = smoothing_factor
         self.num_knots = num_knots
+        self.knot_strategy = knot_strategy
+        self.smoothing_method = smoothing_method
         self._spline: Any = None
         self._fitted = False
 
@@ -87,6 +105,47 @@ class SplinePreprocessor:
             raise ValueError(f"y contract violated: expected [batch, {horizon}], got {y.shape}")
         if X.shape[0] != y.shape[0]:
             raise ValueError("X and y batch size must match")
+
+    @staticmethod
+    def _select_knots_uniform(x: np.ndarray, max_knots: int) -> np.ndarray:
+        """Place knots evenly across the data range (interior only)."""
+        n_knots = min(max_knots, len(x) - 2)
+        if n_knots <= 0:
+            return np.array([], dtype=float)
+        return np.linspace(x[0], x[-1], n_knots + 2)[1:-1]
+
+    @staticmethod
+    def _select_knots_curvature(x: np.ndarray, y: np.ndarray, max_knots: int, degree: int) -> np.ndarray:
+        """Place knots based on curvature density (more knots where signal bends).
+
+        Uses a rough uniform spline to estimate second derivatives, then
+        concentrates knots in regions of high curvature via inverse-CDF sampling.
+        """
+        n_knots = min(max_knots, len(x) - 2)
+        if n_knots <= 0 or len(x) < 5:
+            return np.linspace(x[0], x[-1], max(n_knots, 0) + 2)[1:-1] if n_knots > 0 else np.array([], dtype=float)
+
+        # Rough spline for curvature estimation
+        try:
+            rough = interpolate.UnivariateSpline(x, y, k=min(degree, 3), s=len(x))
+            d2 = np.abs(rough.derivative(2)(x))
+        except Exception:
+            # Fallback to finite differences
+            d2 = np.abs(np.gradient(np.gradient(y, x), x))
+
+        # Curvature density with a small floor to avoid all-zero
+        density = d2 + 1e-10
+        cdf = np.cumsum(density)
+        cdf /= cdf[-1]
+
+        # Inverse-CDF sampling for knot locations
+        quantiles = np.linspace(0, 1, n_knots + 2)[1:-1]
+        knot_positions = np.interp(quantiles, cdf, x)
+
+        # Ensure knots are strictly inside the data range
+        eps = (x[-1] - x[0]) * 1e-6
+        knot_positions = np.clip(knot_positions, x[0] + eps, x[-1] - eps)
+        return np.unique(knot_positions)
 
     def fit(self, x: np.ndarray, y: np.ndarray) -> SplinePreprocessor:
         """Fit spline to data."""
@@ -115,6 +174,37 @@ class SplinePreprocessor:
             logger.warning("Insufficient data for high-degree spline, using linear")
 
         try:
+            # P-spline path: single integrated smoothing (WI-7)
+            if self.smoothing_method == "pspline" and len(x_valid) > degree + 1:
+                try:
+                    self._spline = interpolate.make_smoothing_spline(x_valid, y_valid)
+                    self._fitted = True
+                    logger.info("Fitted P-spline (make_smoothing_spline)")
+                    return self
+                except Exception as e:
+                    logger.warning("P-spline failed (%s), falling back to legacy", e)
+
+            # Adaptive / uniform knot strategies → use LSQUnivariateSpline (WI-6)
+            if self.knot_strategy in ("curvature", "uniform") and len(x_valid) > degree + 2:
+                if self.knot_strategy == "curvature":
+                    knots = self._select_knots_curvature(x_valid, y_valid, self.num_knots, degree)
+                else:
+                    knots = self._select_knots_uniform(x_valid, self.num_knots)
+
+                # LSQUnivariateSpline needs at least 1 interior knot
+                if len(knots) > 0:
+                    try:
+                        self._spline = interpolate.LSQUnivariateSpline(
+                            x_valid, y_valid, t=knots, k=degree,
+                        )
+                        self._fitted = True
+                        logger.info("Fitted %s-degree LSQ spline with %d %s knots",
+                                    degree, len(knots), self.knot_strategy)
+                        return self
+                    except Exception as e:
+                        logger.warning("LSQ spline failed (%s), falling back to auto", e)
+
+            # Legacy auto path: UnivariateSpline or interp1d
             if self.smoothing_factor > 0 and len(x_valid) > degree:
                 self._spline = interpolate.UnivariateSpline(
                     x_valid,
@@ -188,8 +278,14 @@ class SplinePreprocessor:
         return y
 
     def smooth(self, y: np.ndarray, window: int = 5) -> np.ndarray:
-        """Smooth noisy data."""
+        """Smooth noisy data.
+
+        When ``smoothing_method="pspline"``, smoothing is already handled by
+        the P-spline fit, so this method returns the input unchanged.
+        """
         y = self._to_1d_float_array(y, "y")
+        if self.smoothing_method == "pspline":
+            return y
         if window < 3:
             return y
         if window % 2 == 0:
@@ -198,6 +294,49 @@ class SplinePreprocessor:
             return y
         polyorder = min(3, window - 1)
         return np.asarray(savgol_filter(y, window, polyorder), dtype=float)
+
+    def extrapolate(self, x_future: np.ndarray) -> np.ndarray:
+        """Evaluate the fitted spline at future x-positions (extrapolation).
+
+        Useful for residual learning: the spline provides a trend forecast and
+        the LSTM models only the residual.
+        """
+        if not self._fitted:
+            raise RuntimeError("Spline not fitted. Call fit() first.")
+        x_future = self._to_1d_float_array(x_future, "x_future")
+        return np.asarray(self._spline(x_future), dtype=float)
+
+    def evaluate_derivatives(self, x: np.ndarray, order: int = 1) -> np.ndarray:
+        """Evaluate spline derivative of given order at positions x.
+
+        Returns zeros if the fitted spline does not support derivatives
+        (e.g. linear interp1d fallback).
+        """
+        if not self._fitted:
+            raise RuntimeError("Spline not fitted. Call fit() first.")
+        x = self._to_1d_float_array(x, "x")
+        if hasattr(self._spline, "derivative"):
+            return np.asarray(self._spline.derivative(order)(x), dtype=float)
+        # Fallback: numerical differencing
+        eps = 1e-6
+        if order == 1:
+            return np.asarray((self._spline(x + eps) - self._spline(x - eps)) / (2 * eps), dtype=float)
+        if order == 2:
+            return np.asarray(
+                (self._spline(x + eps) - 2 * self._spline(x) + self._spline(x - eps)) / (eps**2), dtype=float
+            )
+        return np.zeros_like(x, dtype=float)
+
+    def compute_residuals(self, x: np.ndarray, y: np.ndarray) -> np.ndarray:
+        """Compute residuals: y - spline(x).
+
+        The spline must be fitted before calling this method.
+        """
+        if not self._fitted:
+            raise RuntimeError("Spline not fitted. Call fit() first.")
+        x = self._to_1d_float_array(x, "x")
+        y = self._to_1d_float_array(y, "y")
+        return y - np.asarray(self._spline(x), dtype=float)
 
     def extract_features(self, y: np.ndarray) -> dict:
         """Extract simple features from a spline fitted to *y*.
@@ -214,6 +353,8 @@ class SplinePreprocessor:
             degree=self.degree,
             smoothing_factor=self.smoothing_factor,
             num_knots=self.num_knots,
+            knot_strategy=self.knot_strategy,
+            smoothing_method=self.smoothing_method,
         )
         tmp.fit(x, y)
 

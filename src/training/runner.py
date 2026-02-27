@@ -17,6 +17,7 @@ import numpy as np
 
 from src.covariates.spec import enforce_covariate_spec, load_covariate_spec
 from src.models.lstm import BACKEND, GRUModel, LSTMModel
+from src.models.tcn import TCNModel
 from src.training.baselines import Phase3BaselineComparisonError, build_baseline_report
 from src.training.trainer import Trainer
 from src.utils.repro import build_phase3_run_metadata, build_run_metadata, get_git_commit_info, set_global_seed
@@ -176,6 +177,17 @@ def _load_training_arrays(args: argparse.Namespace) -> tuple[Any | None, np.ndar
         X = x_past
 
     return X, y
+
+
+def _load_spline_trend(args: argparse.Namespace) -> np.ndarray | None:
+    """Load the y_spline array from processed.npz for residual learning recombination."""
+    if not args.processed_npz:
+        return None
+    payload = np.load(args.processed_npz)
+    y_spline = payload.get("y_spline")
+    if y_spline is None or y_spline.size == 0:
+        return None
+    return np.asarray(y_spline, dtype=np.float32)
 
 
 def _load_processed_feature_names(processed_npz: str | None) -> list[str]:
@@ -447,6 +459,7 @@ def _build_model(
     model_map = {
         "lstm": LSTMModel,
         "gru": GRUModel,
+        "tcn": TCNModel,
     }
     model_cls = model_map.get(args.model_type, LSTMModel)
 
@@ -459,6 +472,12 @@ def _build_model(
         input_features=input_features,
         static_features=static_features,
         future_features=future_features,
+        loss=getattr(args, "loss", "mse"),
+        lr_schedule=getattr(args, "lr_schedule", "none"),
+        l2_reg=getattr(args, "l2_reg", 0.0),
+        recurrent_dropout=getattr(args, "recurrent_dropout", 0.0),
+        use_residual=getattr(args, "use_residual", False),
+        use_layer_norm=getattr(args, "use_layer_norm", False),
     )
 
 
@@ -598,6 +617,17 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         y_pred = results["y_pred"]
         y_test = results["y_test"]
         X_test = results["X_test"]
+
+        # Residual learning recombination: add back the spline trend component.
+        if getattr(args, "residual_learning", False):
+            y_spline_full = _load_spline_trend(args)
+            if y_spline_full is not None:
+                test_start = split_indices.get("test", {}).get("start", 0)
+                test_end = test_start + len(y_test)
+                y_spline_test = y_spline_full[test_start:test_end]
+                y_pred = y_pred + y_spline_test
+                y_test = y_test + y_spline_test
+                logger.info("Residual learning: recombined spline trend with LSTM residual predictions.")
 
         # Only compute simple baselines for classic univariate contract.
         if args.feature_mode == "univariate":
@@ -870,9 +900,29 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--hidden-units", type=int, nargs="+", default=[64, 32])
     p.add_argument("--dropout", type=float, default=0.2)
     p.add_argument("--learning-rate", type=float, default=1e-3)
+    p.add_argument("--loss", type=str, default="mse", help="Loss function: mse, mae, huber, quantile_50")
+    p.add_argument(
+        "--lr-schedule",
+        type=str,
+        default="none",
+        choices=["none", "cosine", "reduce_on_plateau", "exponential"],
+        help="Learning rate schedule strategy",
+    )
+    p.add_argument("--l2-reg", type=float, default=0.0, help="L2 regularization weight (0 = disabled)")
+    p.add_argument("--recurrent-dropout", type=float, default=0.0, help="Recurrent dropout rate (0 = disabled)")
+    p.add_argument("--use-residual", action="store_true", default=False,
+                   help="Add residual (skip) connections around LSTM layers")
+    p.add_argument("--use-layer-norm", action="store_true", default=False,
+                   help="Add LayerNormalization after each LSTM layer")
+    p.add_argument(
+        "--residual-learning",
+        action="store_true",
+        default=False,
+        help="Train LSTM on spline residuals; recombine at inference time",
+    )
 
     # Phase 5 extension contract (backward compatible defaults)
-    p.add_argument("--model-type", type=str, choices=["lstm", "gru", "attention_lstm"], default="lstm")
+    p.add_argument("--model-type", type=str, choices=["lstm", "gru", "attention_lstm", "tcn"], default="lstm")
     p.add_argument("--feature-mode", type=str, choices=["univariate", "multivariate"], default="univariate")
     p.add_argument("--target-cols", type=str, default="target")
     p.add_argument("--dynamic-covariates", type=str, default="")

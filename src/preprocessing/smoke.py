@@ -34,6 +34,16 @@ def main() -> None:
     p.add_argument("--scaling", type=str, default="standard", choices=["standard", "minmax"])
     p.add_argument("--artifacts-dir", type=str, default="artifacts")
     p.add_argument("--covariate-spec", type=str, default=None, help="Optional covariate schema JSON")
+    p.add_argument("--knot-strategy", type=str, default="auto",
+                   choices=["auto", "curvature", "uniform"],
+                   help="Spline knot placement strategy")
+    p.add_argument("--smoothing-method", type=str, default="legacy",
+                   choices=["legacy", "pspline"],
+                   help="Smoothing method: legacy (spline+savgol) or pspline")
+    p.add_argument("--inject-spline-features", action="store_true", default=False,
+                   help="Inject spline d1/d2/residual as LSTM covariates")
+    p.add_argument("--residual-learning", action="store_true", default=False,
+                   help="Enable residual learning (LSTM learns y - spline_trend)")
     args = p.parse_args()
 
     if args.input:
@@ -48,6 +58,10 @@ def main() -> None:
         horizon=args.horizon,
         scaling=args.scaling,
         covariate_spec=args.covariate_spec,
+        knot_strategy=args.knot_strategy,
+        smoothing_method=args.smoothing_method,
+        inject_spline_features=args.inject_spline_features,
+        residual_mode=args.residual_learning,
     )
 
     paths = run_preprocessing_pipeline(
