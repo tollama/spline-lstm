@@ -116,7 +116,7 @@ def test_synthetic_required_columns_shape_and_types(scenario: str):
     # dtype contract
     assert pd.api.types.is_datetime64_any_dtype(df["timestamp"])
     assert pd.api.types.is_float_dtype(df["target"])
-    assert pd.api.types.is_object_dtype(df["scenario"])
+    assert pd.api.types.is_object_dtype(df["scenario"]) or pd.api.types.is_string_dtype(df["scenario"])
 
     # shape / monotonicity / uniqueness contract
     assert len(df) <= n_samples  # S3 may be shorter due to dropped timestamps
