@@ -50,7 +50,8 @@ class EnsembleForecaster:
             if model.model is None:
                 model.build()
             h = model.fit_model(
-                X, y,
+                X,
+                y,
                 epochs=epochs,
                 batch_size=batch_size,
                 validation_data=validation_data,

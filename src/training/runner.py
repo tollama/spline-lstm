@@ -910,10 +910,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--l2-reg", type=float, default=0.0, help="L2 regularization weight (0 = disabled)")
     p.add_argument("--recurrent-dropout", type=float, default=0.0, help="Recurrent dropout rate (0 = disabled)")
-    p.add_argument("--use-residual", action="store_true", default=False,
-                   help="Add residual (skip) connections around LSTM layers")
-    p.add_argument("--use-layer-norm", action="store_true", default=False,
-                   help="Add LayerNormalization after each LSTM layer")
+    p.add_argument(
+        "--use-residual", action="store_true", default=False, help="Add residual (skip) connections around LSTM layers"
+    )
+    p.add_argument(
+        "--use-layer-norm", action="store_true", default=False, help="Add LayerNormalization after each LSTM layer"
+    )
     p.add_argument(
         "--residual-learning",
         action="store_true",

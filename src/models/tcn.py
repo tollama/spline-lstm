@@ -20,9 +20,7 @@ try:
     from tensorflow import keras
     from tensorflow.keras import Model, layers
 except ImportError as exc:  # pragma: no cover
-    raise ImportError(
-        "TensorFlow is required for TCN models. Install via `pip install tensorflow`."
-    ) from exc
+    raise ImportError("TensorFlow is required for TCN models. Install via `pip install tensorflow`.") from exc
 
 
 class TCNModel:
@@ -139,9 +137,7 @@ class TCNModel:
 
     def build(self) -> None:
         """Build the TCN Keras model."""
-        past_input = layers.Input(
-            shape=(self.sequence_length, self.input_features), name="past_input"
-        )
+        past_input = layers.Input(shape=(self.sequence_length, self.input_features), name="past_input")
         model_inputs: list[tf.keras.layers.Layer] = [past_input]
 
         x = past_input
@@ -153,9 +149,7 @@ class TCNModel:
         concat_tensors = [x]
 
         if self.future_features > 0:
-            future_input = layers.Input(
-                shape=(self.output_units, self.future_features), name="future_input"
-            )
+            future_input = layers.Input(shape=(self.output_units, self.future_features), name="future_input")
             model_inputs.append(future_input)
             concat_tensors.append(layers.Flatten(name="future_flatten")(future_input))
 
@@ -216,11 +210,7 @@ class TCNModel:
 
         callbacks = []
         if early_stopping:
-            callbacks.append(
-                keras.callbacks.EarlyStopping(
-                    monitor="val_loss", patience=10, restore_best_weights=True
-                )
-            )
+            callbacks.append(keras.callbacks.EarlyStopping(monitor="val_loss", patience=10, restore_best_weights=True))
         if self.lr_schedule == "reduce_on_plateau":
             callbacks.append(
                 keras.callbacks.ReduceLROnPlateau(
@@ -234,7 +224,8 @@ class TCNModel:
             callbacks.extend(extra_callbacks)
 
         fit_history = self.model.fit(
-            X, y,
+            X,
+            y,
             epochs=epochs,
             batch_size=batch_size,
             validation_data=validation_data,

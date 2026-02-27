@@ -195,11 +195,15 @@ class SplinePreprocessor:
                 if len(knots) > 0:
                     try:
                         self._spline = interpolate.LSQUnivariateSpline(
-                            x_valid, y_valid, t=knots, k=degree,
+                            x_valid,
+                            y_valid,
+                            t=knots,
+                            k=degree,
                         )
                         self._fitted = True
-                        logger.info("Fitted %s-degree LSQ spline with %d %s knots",
-                                    degree, len(knots), self.knot_strategy)
+                        logger.info(
+                            "Fitted %s-degree LSQ spline with %d %s knots", degree, len(knots), self.knot_strategy
+                        )
                         return self
                     except Exception as e:
                         logger.warning("LSQ spline failed (%s), falling back to auto", e)

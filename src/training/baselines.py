@@ -101,9 +101,7 @@ def seasonal_naive_predict(X_test: np.ndarray, period: int, horizon: int = 1) ->
     return preds
 
 
-def exponential_smoothing_predict(
-    X_test: np.ndarray, alpha: float = 0.3, horizon: int = 1
-) -> np.ndarray:
+def exponential_smoothing_predict(X_test: np.ndarray, alpha: float = 0.3, horizon: int = 1) -> np.ndarray:
     """Predict using simple exponential smoothing (SES) of each window.
 
     The smoothed level at the end of each window is repeated for all horizon

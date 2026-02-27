@@ -34,16 +34,32 @@ def main() -> None:
     p.add_argument("--scaling", type=str, default="standard", choices=["standard", "minmax"])
     p.add_argument("--artifacts-dir", type=str, default="artifacts")
     p.add_argument("--covariate-spec", type=str, default=None, help="Optional covariate schema JSON")
-    p.add_argument("--knot-strategy", type=str, default="auto",
-                   choices=["auto", "curvature", "uniform"],
-                   help="Spline knot placement strategy")
-    p.add_argument("--smoothing-method", type=str, default="legacy",
-                   choices=["legacy", "pspline"],
-                   help="Smoothing method: legacy (spline+savgol) or pspline")
-    p.add_argument("--inject-spline-features", action="store_true", default=False,
-                   help="Inject spline d1/d2/residual as LSTM covariates")
-    p.add_argument("--residual-learning", action="store_true", default=False,
-                   help="Enable residual learning (LSTM learns y - spline_trend)")
+    p.add_argument(
+        "--knot-strategy",
+        type=str,
+        default="auto",
+        choices=["auto", "curvature", "uniform"],
+        help="Spline knot placement strategy",
+    )
+    p.add_argument(
+        "--smoothing-method",
+        type=str,
+        default="legacy",
+        choices=["legacy", "pspline"],
+        help="Smoothing method: legacy (spline+savgol) or pspline",
+    )
+    p.add_argument(
+        "--inject-spline-features",
+        action="store_true",
+        default=False,
+        help="Inject spline d1/d2/residual as LSTM covariates",
+    )
+    p.add_argument(
+        "--residual-learning",
+        action="store_true",
+        default=False,
+        help="Enable residual learning (LSTM learns y - spline_trend)",
+    )
     args = p.parse_args()
 
     if args.input:
