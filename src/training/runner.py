@@ -28,6 +28,7 @@ from src.training.edge import (
     export_tflite_model,
     extract_input_specs,
     load_device_profiles,
+    parity_within_thresholds,
     parse_edge_sla,
     run_onnx_inference,
     run_tflite_inference,
@@ -477,6 +478,20 @@ def _materialize_model_inputs(X: Any) -> list[np.ndarray]:
     return out
 
 
+def _take_model_input_samples(X: Any, *, max_samples: int, from_tail: bool = False) -> Any:
+    n = max(1, int(max_samples))
+
+    def _slice(arr: Any) -> np.ndarray:
+        x = np.asarray(arr, dtype=np.float32)
+        if x.shape[0] == 0:
+            raise ValueError("cannot sample from empty model input batch")
+        return x[-n:] if from_tail else x[:n]
+
+    if isinstance(X, list):
+        return [None if x is None else _slice(x) for x in X]
+    return _slice(X)
+
+
 def _export_edge_artifacts(
     *,
     model_wrapper: Any,
@@ -489,10 +504,15 @@ def _export_edge_artifacts(
     edge_sla: str,
     device_benchmark_config: str | None,
     sample_inputs: Any,
+    calibration_inputs: Any,
     reference_prediction: np.ndarray,
     semantic_version: str,
     min_app_version: str,
     ota_model_id: str,
+    int8_calibration_samples: int,
+    parity_max_abs_diff: float,
+    parity_rmse_max: float,
+    parity_enforce: bool,
 ) -> tuple[dict[str, Any], dict[str, Any], Path, Path]:
     exports_root = artifacts_base / "exports" / run_id
     model_root = exports_root / model_type
@@ -508,6 +528,7 @@ def _export_edge_artifacts(
         raise RuntimeError("export requested but model is not built")
 
     sample_input_list = _materialize_model_inputs(sample_inputs)
+    calibration_input_list = _materialize_model_inputs(calibration_inputs)
     export_results: dict[str, dict[str, Any]] = {}
 
     if "tflite" in requested_formats:
@@ -516,7 +537,8 @@ def _export_edge_artifacts(
             keras_model,
             tflite_path,
             quantization=quantization,
-            calibration_inputs=sample_input_list,
+            calibration_inputs=calibration_input_list,
+            calibration_max_samples=int8_calibration_samples,
         )
     else:
         export_results["tflite"] = {"status": "skipped", "reason": "not requested"}
@@ -539,11 +561,41 @@ def _export_edge_artifacts(
                 pred = run_tflite_inference(model_path, sample_input_list)
             else:
                 pred = run_onnx_inference(model_path, sample_input_list)
-            parity[runtime_name] = compute_parity(reference=reference, candidate=np.asarray(pred, dtype=np.float32))
+            parity_metrics = compute_parity(reference=reference, candidate=np.asarray(pred, dtype=np.float32))
+            parity[runtime_name] = {
+                **parity_metrics,
+                "within_threshold": parity_within_thresholds(
+                    parity_metrics,
+                    max_abs_diff=parity_max_abs_diff,
+                    rmse=parity_rmse_max,
+                ),
+            }
         except Exception as exc:  # pragma: no cover - runtime dependent
             parity[runtime_name] = {"error": str(exc)}
 
     runtime_compatibility = build_runtime_compatibility(export_results)
+    for runtime_name in ("tflite", "onnx"):
+        parity_result = parity.get(runtime_name)
+        if parity_result is None:
+            continue
+
+        runtime_state = runtime_compatibility.get(runtime_name, {})
+        if not runtime_state.get("supported"):
+            continue
+
+        within_threshold = parity_within_thresholds(
+            parity_result,
+            max_abs_diff=parity_max_abs_diff,
+            rmse=parity_rmse_max,
+        )
+        runtime_state["parity_within_threshold"] = within_threshold
+        if parity_enforce and not within_threshold:
+            runtime_state["supported"] = False
+            runtime_state["reason"] = (
+                f"parity threshold exceeded (max_abs_diff<={parity_max_abs_diff}, rmse<={parity_rmse_max})"
+            )
+        runtime_compatibility[runtime_name] = runtime_state
+
     runtime_stack, fallback_chain = select_runtime_stack(runtime_compatibility)
     selected_path = runtime_compatibility.get(runtime_stack, {}).get("path")
 
@@ -567,11 +619,17 @@ def _export_edge_artifacts(
         "device_profiles": profiles,
         "quantization": quantization,
         "requested_formats": requested_formats,
+        "int8_calibration_samples": int8_calibration_samples,
         "input_specs": extract_input_specs(keras_model),
         "exports": export_results,
         "runtime_compatibility": runtime_compatibility,
         "runtime_stack": runtime_stack,
         "fallback_chain": fallback_chain,
+        "parity_policy": {
+            "enforce": parity_enforce,
+            "max_abs_diff": parity_max_abs_diff,
+            "rmse": parity_rmse_max,
+        },
         "parity": parity,
         "ota_manifest": ota_manifest,
     }
@@ -826,6 +884,12 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         shutil.copy2(best_ckpt_h5, best_ckpt)
 
     x_last = [x[-1:] if x is not None else None for x in X_test] if isinstance(X_test, list) else X_test[-1:]
+    export_parity_inputs = _take_model_input_samples(X_test, max_samples=1, from_tail=True)
+    export_calibration_inputs = _take_model_input_samples(
+        X_test,
+        max_samples=args.int8_calibration_samples,
+        from_tail=False,
+    )
     y_true_last = y_test[-1]
     y_pred_last = y_pred[-1]
     _write_predictions_csv(predictions_path, run_id=run_id, y_pred_last=y_pred_last)
@@ -840,11 +904,16 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         edge_profile=args.edge_profile,
         edge_sla=args.edge_sla,
         device_benchmark_config=args.device_benchmark_config,
-        sample_inputs=x_last,
+        sample_inputs=export_parity_inputs,
+        calibration_inputs=export_calibration_inputs,
         reference_prediction=np.asarray(y_pred_last, dtype=np.float32),
         semantic_version=args.semantic_version,
         min_app_version=args.min_app_version,
         ota_model_id=args.ota_model_id or f"spline-lstm-{args.model_type}",
+        int8_calibration_samples=args.int8_calibration_samples,
+        parity_max_abs_diff=args.parity_max_abs_diff,
+        parity_rmse_max=args.parity_rmse_max,
+        parity_enforce=args.parity_enforce,
     )
 
     if "evaluation_context" not in baselines_obj:
@@ -886,6 +955,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "edge_profile": args.edge_profile,
         "edge_sla": args.edge_sla,
         "quantization": args.quantization,
+        "int8_calibration_samples": args.int8_calibration_samples,
+        "parity_max_abs_diff": args.parity_max_abs_diff,
+        "parity_rmse_max": args.parity_rmse_max,
+        "parity_enforce": args.parity_enforce,
         "device_benchmark_config": args.device_benchmark_config,
         "semantic_version": args.semantic_version,
         "min_app_version": args.min_app_version,
@@ -951,6 +1024,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "runtime_stack": export_manifest.get("runtime_stack"),
             "fallback_chain": export_manifest.get("fallback_chain"),
             "formats": export_manifest.get("exports"),
+            "parity_policy": export_manifest.get("parity_policy"),
             "parity": export_manifest.get("parity"),
         },
         "ota": ota_manifest,
@@ -989,6 +1063,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
 - edge_profile: {args.edge_profile}
 - edge_sla: {args.edge_sla}
 - quantization: {args.quantization}
+- int8_calibration_samples: {args.int8_calibration_samples}
+- parity_max_abs_diff: {args.parity_max_abs_diff}
+- parity_rmse_max: {args.parity_rmse_max}
+- parity_enforce: {args.parity_enforce}
 - export_formats: {export_formats}
 
 ## Evaluation Metrics
@@ -1117,6 +1195,31 @@ def build_parser() -> argparse.ArgumentParser:
         default="balanced",
     )
     p.add_argument("--quantization", type=str, choices=["none", "fp16", "int8"], default="fp16")
+    p.add_argument(
+        "--int8-calibration-samples",
+        type=int,
+        default=64,
+        help="Maximum number of representative samples used for int8 calibration",
+    )
+    p.add_argument(
+        "--parity-max-abs-diff",
+        type=float,
+        default=0.5,
+        help="Maximum allowed absolute forecast diff for export parity checks",
+    )
+    p.add_argument(
+        "--parity-rmse-max",
+        type=float,
+        default=0.2,
+        help="Maximum allowed RMSE for export parity checks",
+    )
+    p.add_argument(
+        "--parity-enforce",
+        action="store_true",
+        default=False,
+        help="When enabled, runtimes failing parity thresholds are excluded from runtime selection",
+    )
+    p.add_argument("--no-parity-enforce", action="store_false", dest="parity_enforce")
     p.add_argument("--device-benchmark-config", type=str, default=None)
     p.add_argument("--semantic-version", type=str, default="1.0.0")
     p.add_argument("--min-app-version", type=str, default="1.0.0")

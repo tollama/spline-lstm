@@ -91,11 +91,30 @@ python3 -m src.training.runner \
   --edge-profile android_high_end \
   --edge-sla balanced
 
+# Optional export hardening flags:
+# --quantization int8 --int8-calibration-samples 64
+# --parity-max-abs-diff 0.25 --parity-rmse-max 0.10 --parity-enforce
+
 # Run edge benchmark harness
 python3 scripts/benchmark_edge.py \
   --run-id edge-demo-001 \
   --artifacts-dir artifacts \
   --edge-sla balanced
+
+# Apply OTA release gate (blocks promotion on SLA miss)
+python3 scripts/edge_release_gate.py \
+  --run-id edge-demo-001 \
+  --artifacts-dir artifacts \
+  --required-profiles android_high_end,ios_high_end
+
+# Candidate lane automation (train -> benchmark -> gate -> champion/fallback selection)
+python3 scripts/edge_selection_lane.py \
+  --workspace-dir . \
+  --artifacts-dir artifacts \
+  --candidates gru,tcn,dlinear \
+  --seeds 41,42,43 \
+  --selection-profile desktop_reference \
+  --max-accuracy-degradation-pct 2.0
 ```
 
 Artifacts:
@@ -103,6 +122,11 @@ Artifacts:
 - OTA manifest: `artifacts/exports/<run_id>/ota_manifest.json`
 - Device benchmark reports: `artifacts/edge_bench/<run_id>/*.json`
 - Leaderboard: `artifacts/edge_bench/<run_id>/leaderboard.json`
+- Release gate report: `artifacts/edge_bench/<run_id>/release_gate.json`
+- Candidate lane selection: `artifacts/edge_selection/<experiment_id>/selection.json`
+
+Backend runtime-aware inference endpoint:
+- `POST /api/v1/forecast/infer` (reads `runtime_stack` + `fallback_chain`, then attempts `tflite -> onnx -> keras -> naive`)
 
 ---
 

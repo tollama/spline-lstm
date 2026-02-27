@@ -8,6 +8,7 @@ import uuid
 from typing import Any
 
 from backend.app.config import API_PREFIX, ARTIFACTS_DIR, PHASE6_FLAGS, ROOT_DIR
+from backend.app.inference import infer_with_runtime_fallback
 from backend.app.models import (
     CovariateContractValidateRequest,
     CovariateFieldSpec,
@@ -314,5 +315,40 @@ def forecast_runtime_selection(
             "manifest_path": resolved["manifest_path"],
             "runtime_compatibility": resolved["runtime_compatibility"],
             "correlation": corr(request, run_id=run_id),
+        },
+    }
+
+
+@router.post(f"{API_PREFIX}/forecast/infer")
+def infer_forecast(
+    payload: ForecastInputRequest,
+    request: Request,
+    preferred: str | None = Query(default=None, description="Optional runtime preference order, e.g. tflite,onnx"),
+) -> dict[str, Any]:
+    candidate = json.loads(json.dumps(payload.base_inputs, ensure_ascii=False))
+    before_hash = _payload_hash(candidate)
+    try:
+        candidate = _apply_input_patches(candidate, payload.patches)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    preferred_order = [x.strip() for x in preferred.split(",") if x.strip()] if preferred else None
+    result = infer_with_runtime_fallback(run_id=payload.run_id, base_inputs=candidate, preferred_order=preferred_order)
+    after_hash = _payload_hash(candidate)
+
+    return {
+        "ok": True,
+        "data": {
+            "run_id": payload.run_id,
+            "predictions": result["predictions"],
+            "runtime_stack_requested": result["runtime_stack_requested"],
+            "runtime_used": result["runtime_used"],
+            "fallback_chain": result["fallback_chain"],
+            "fallback_used": result["fallback_used"],
+            "attempts": result["attempts"],
+            "manifest_path": result["manifest_path"],
+            "input_hash_before": before_hash,
+            "input_hash_after": after_hash,
+            "correlation": corr(request, run_id=payload.run_id),
         },
     }

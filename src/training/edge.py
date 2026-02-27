@@ -142,6 +142,7 @@ def export_tflite_model(
     out_path: Path,
     quantization: str,
     calibration_inputs: Any | None = None,
+    calibration_max_samples: int = 64,
 ) -> dict[str, Any]:
     try:
         import tensorflow as tf
@@ -158,7 +159,7 @@ def export_tflite_model(
         elif quantization == "int8":
             if calibration_inputs is None:
                 raise ValueError("int8 quantization requires calibration inputs")
-            cal = _truncate_calibration_inputs(calibration_inputs)
+            cal = _truncate_calibration_inputs(calibration_inputs, max_samples=max(1, int(calibration_max_samples)))
             converter.optimizations = [tf.lite.Optimize.DEFAULT]
             converter.representative_dataset = lambda: _representative_dataset(cal)
             converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS_INT8]
@@ -175,6 +176,7 @@ def export_tflite_model(
             "size_bytes": int(out_path.stat().st_size),
             "sha256": _sha256(out_path),
             "quantization": quantization,
+            "calibration_samples": int(calibration_max_samples) if quantization == "int8" else None,
         }
     except Exception as exc:  # pragma: no cover - runtime dependent
         logger.exception("TFLite export failed")
@@ -252,6 +254,21 @@ def compute_parity(reference: np.ndarray, candidate: np.ndarray) -> dict[str, fl
         "mean_abs_diff": float(np.mean(diff)),
         "rmse": float(np.sqrt(np.mean((ref - cand) ** 2))),
     }
+
+
+def parity_within_thresholds(
+    parity_result: dict[str, Any],
+    *,
+    max_abs_diff: float,
+    rmse: float,
+) -> bool:
+    if "error" in parity_result:
+        return False
+    result_max_abs = parity_result.get("max_abs_diff")
+    result_rmse = parity_result.get("rmse")
+    if result_max_abs is None or result_rmse is None:
+        return False
+    return float(result_max_abs) <= float(max_abs_diff) and float(result_rmse) <= float(rmse)
 
 
 def build_runtime_compatibility(export_results: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:

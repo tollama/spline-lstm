@@ -45,6 +45,10 @@ def test_runner_parser_defaults_still_valid_without_legacy_flags():
     assert args.edge_profile == "desktop_reference"
     assert args.edge_sla == "balanced"
     assert args.quantization == "fp16"
+    assert args.int8_calibration_samples == 64
+    assert args.parity_max_abs_diff == 0.5
+    assert args.parity_rmse_max == 0.2
+    assert args.parity_enforce is False
 
 
 def test_runner_parser_accepts_strict_run_id_validation_mode():
@@ -77,6 +81,13 @@ def test_runner_parser_accepts_phase5_extension_flags():
             "latency_biased",
             "--quantization",
             "int8",
+            "--int8-calibration-samples",
+            "32",
+            "--parity-max-abs-diff",
+            "0.25",
+            "--parity-rmse-max",
+            "0.1",
+            "--parity-enforce",
             "--semantic-version",
             "1.2.3",
             "--min-app-version",
@@ -96,6 +107,10 @@ def test_runner_parser_accepts_phase5_extension_flags():
     assert args.edge_profile == "android_high_end"
     assert args.edge_sla == "latency_biased"
     assert args.quantization == "int8"
+    assert args.int8_calibration_samples == 32
+    assert args.parity_max_abs_diff == 0.25
+    assert args.parity_rmse_max == 0.1
+    assert args.parity_enforce is True
     assert args.semantic_version == "1.2.3"
     assert args.min_app_version == "1.1.0"
     assert args.ota_model_id == "spline-dlinear-edge"

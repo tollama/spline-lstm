@@ -17,6 +17,7 @@ _BACKEND_MODULES = [
     "backend.app.routes.health",
     "backend.app.routes",
     "backend.app.executor",
+    "backend.app.inference",
     "backend.app.store",
     "backend.app.runtime",
     "backend.app.utils",
@@ -135,3 +136,39 @@ def test_runtime_selection_prefers_manifest_order(tmp_path: Path, monkeypatch) -
     data = response.json()["data"]
     assert data["runtime_stack"] == "onnx"
     assert data["fallback_chain"][0] == "onnx"
+
+
+def test_infer_loader_uses_manifest_fallback_chain(tmp_path: Path, monkeypatch) -> None:
+    client = _load_client(tmp_path, monkeypatch, mode="mock", cmd="")
+    run_id = "edge-infer-fallback-001"
+    manifest_path = tmp_path / "artifacts" / "exports" / run_id / "manifest.json"
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    manifest_path.write_text(
+        json.dumps(
+            {
+                "runtime_stack": "onnx",
+                "fallback_chain": ["onnx", "keras"],
+                "input_specs": [{"name": "past_input", "shape": [1, 8, 1], "dtype": "float32"}],
+                "runtime_compatibility": {
+                    "onnx": {"supported": True, "path": str(tmp_path / "missing.onnx")},
+                    "keras": {"supported": True, "path": None},
+                    "tflite": {"supported": False, "path": None},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    payload = {
+        "run_id": run_id,
+        "actor": "tester",
+        "base_inputs": {"horizon": 2, "target_history": [1.0, 2.0, 3.0]},
+        "patches": [],
+    }
+    response = client.post("/api/v1/forecast/infer", json=payload)
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert data["runtime_stack_requested"] == "onnx"
+    assert data["runtime_used"] == "naive"
+    assert data["attempts"][0]["runtime"] == "onnx"
+    assert data["attempts"][1]["runtime"] == "keras"

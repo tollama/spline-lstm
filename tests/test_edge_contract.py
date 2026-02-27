@@ -12,6 +12,7 @@ from src.training.edge import (
     compute_size_score,
     compute_stability_score,
     load_device_profiles,
+    parity_within_thresholds,
     parse_edge_sla,
     select_runtime_stack,
 )
@@ -85,3 +86,12 @@ def test_load_device_profiles_merges_user_profiles(tmp_path: Path) -> None:
     profiles = load_device_profiles(str(cfg))
     assert profiles["android_high_end"]["latency_p95_target_ms"] == 40
     assert profiles["custom_device"]["runtime_order"] == ["onnx", "keras"]
+
+
+def test_parity_threshold_evaluator() -> None:
+    ok = {"max_abs_diff": 0.04, "rmse": 0.02}
+    bad = {"max_abs_diff": 0.8, "rmse": 0.3}
+    err = {"error": "runtime failure"}
+    assert parity_within_thresholds(ok, max_abs_diff=0.1, rmse=0.1) is True
+    assert parity_within_thresholds(bad, max_abs_diff=0.1, rmse=0.1) is False
+    assert parity_within_thresholds(err, max_abs_diff=0.1, rmse=0.1) is False

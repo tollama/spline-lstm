@@ -155,3 +155,17 @@ def test_phase6_runtime_selection_contract() -> None:
     assert data["runtime_stack"] == "keras"
     assert "fallback_chain" in data
     assert "runtime_compatibility" in data
+
+
+def test_phase6_infer_contract_with_runtime_loader() -> None:
+    payload = _sample_payload()
+    payload["run_id"] = "phase6-infer-contract-missing-run"
+    infer = client.post("/api/v1/forecast/infer", json=payload)
+    assert infer.status_code == 200
+    data = infer.json()["data"]
+    assert data["run_id"] == payload["run_id"]
+    assert isinstance(data["predictions"], list)
+    assert len(data["predictions"]) == payload["base_inputs"]["horizon"]
+    assert "runtime_used" in data
+    assert "fallback_chain" in data
+    assert isinstance(data["attempts"], list)

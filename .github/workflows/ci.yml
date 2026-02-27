@@ -116,6 +116,19 @@ jobs:
             --iterations 20 \
             --warmup 5
 
+      - name: OTA release gate
+        run: |
+          python scripts/edge_release_gate.py \
+            --run-id "${RUN_ID}" \
+            --artifacts-dir artifacts \
+            --required-profiles desktop_reference \
+            --max-accuracy-degradation-pct 2.0 \
+            --size-limit-mb 8 \
+            --size-hard-limit-mb 15 \
+            --min-stability-attempts 20 \
+            --max-failures 0 \
+            --skip-memory-check
+
       - name: Validate edge artifacts contract
         run: |
           python - <<'PY'
@@ -129,6 +142,7 @@ jobs:
           ota_manifest_path = root / "exports" / run_id / "ota_manifest.json"
           bench_root = root / "edge_bench" / run_id
           leaderboard_path = bench_root / "leaderboard.json"
+          release_gate_path = bench_root / "release_gate.json"
           required = [
               manifest_path,
               ota_manifest_path,
@@ -136,6 +150,7 @@ jobs:
               bench_root / "ios_high_end.json",
               bench_root / "desktop_reference.json",
               leaderboard_path,
+              release_gate_path,
           ]
           missing = [str(p) for p in required if not p.exists()]
           if missing:
@@ -147,6 +162,11 @@ jobs:
           if not required_runtime_keys.issubset(runtime_compat.keys()):
               raise SystemExit(f"runtime_compatibility keys invalid: {sorted(runtime_compat.keys())}")
 
+          parity_policy = manifest.get("parity_policy", {})
+          required_parity_keys = {"enforce", "max_abs_diff", "rmse"}
+          if not required_parity_keys.issubset(parity_policy.keys()):
+              raise SystemExit(f"parity_policy keys invalid: {sorted(parity_policy.keys())}")
+
           tflite_status = manifest.get("exports", {}).get("tflite", {}).get("status")
           if tflite_status != "succeeded":
               raise SystemExit(f"tflite export must succeed in CI, got status={tflite_status}")
@@ -154,6 +174,14 @@ jobs:
           leaderboard = json.loads(leaderboard_path.read_text(encoding="utf-8"))
           if not isinstance(leaderboard.get("results"), list) or len(leaderboard["results"]) == 0:
               raise SystemExit("leaderboard results missing or empty")
+
+          release_gate = json.loads(release_gate_path.read_text(encoding="utf-8"))
+          if release_gate.get("promotion_allowed") is not True:
+              raise SystemExit(f"release gate failed: {release_gate.get('blockers')}")
+
+          ota_manifest = json.loads(ota_manifest_path.read_text(encoding="utf-8"))
+          if ota_manifest.get("promotion_allowed") is not True:
+              raise SystemExit("ota manifest not marked as promotion_allowed=true")
 
           print("edge export+benchmark contracts validated")
           PY
