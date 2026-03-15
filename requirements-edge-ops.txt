@@ -1,0 +1,8 @@
+# Reproducible edge ops profile: ingest + release gate only.
+# Install with:
+#   python -m pip install -r requirements-edge-ops.txt
+#   python -m pip install -e . --no-deps
+numpy>=1.24.0
+protobuf>=3.20.3,<5.0.0
+tqdm>=4.65.0
+pyyaml>=6.0

@@ -47,6 +47,16 @@ python3 scripts/validate_edge_environment.py --mode ops
 python3 scripts/validate_edge_environment.py --mode benchmark-onnx
 python3 scripts/validate_edge_environment.py --mode train-export
 
+# file-based installs for edge nodes / wheelhouses
+python -m pip install -r requirements-edge-ops.txt
+python -m pip install -e . --no-deps
+
+python -m pip install -r requirements-edge-runtime.txt
+python -m pip install -e . --no-deps
+
+python -m pip install -r requirements-edge-train-export.txt
+python -m pip install -e . --no-deps
+
 # create a fresh venv, install the selected profile, validate it,
 # and for ops mode run the sample ingest+release path
 make edge-smoke-env MODE=ops
@@ -54,7 +64,7 @@ make edge-smoke-env MODE=benchmark-onnx
 make edge-smoke-env MODE=train-export
 ```
 
-`make edge-smoke-env` wraps `scripts/edge_smoke_env.sh`. Use `VENV_DIR`, `ARTIFACTS_DIR`, `CACHE_ROOT`, and `RUN_ID` to override defaults on constrained edge hosts.
+`make edge-smoke-env` wraps `scripts/edge_smoke_env.sh` and installs from `requirements-edge-ops.txt`, `requirements-edge-runtime.txt`, or `requirements-edge-train-export.txt` before `pip install -e . --no-deps`. Use `VENV_DIR`, `ARTIFACTS_DIR`, `CACHE_ROOT`, and `RUN_ID` to override defaults on constrained edge hosts.
 
 ## Edge benchmark flow
 

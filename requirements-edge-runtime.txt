@@ -1,0 +1,6 @@
+# Reproducible edge runtime profile: ops + ONNX benchmark support.
+# Install with:
+#   python -m pip install -r requirements-edge-runtime.txt
+#   python -m pip install -e . --no-deps
+-r requirements-edge-ops.txt
+onnxruntime>=1.17.0

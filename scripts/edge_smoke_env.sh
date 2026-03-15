@@ -15,9 +15,9 @@ Usage: bash scripts/edge_smoke_env.sh [--mode ops|benchmark-onnx|train-export] [
 Fresh-environment smoke validation for edge-focused spline-lstm installs.
 
 Modes:
-  ops            install 'pip install -e .' and validate ingest/gate flow
-  benchmark-onnx install 'pip install -e ".[edge-runtime]"' and validate ONNX benchmark support
-  train-export   install 'pip install -e ".[preprocessing,train,edge-export]"' and validate full export node support
+  ops            install from 'requirements-edge-ops.txt' and validate ingest/gate flow
+  benchmark-onnx install from 'requirements-edge-runtime.txt' and validate ONNX benchmark support
+  train-export   install from 'requirements-edge-train-export.txt' and validate full export node support
 EOF
 }
 
@@ -57,15 +57,15 @@ done
 
 case "$MODE" in
   ops)
-    INSTALL_SPEC="."
+    REQUIREMENTS_FILE="requirements-edge-ops.txt"
     VALIDATE_MODE="ops"
     ;;
   benchmark-onnx)
-    INSTALL_SPEC=".[edge-runtime]"
+    REQUIREMENTS_FILE="requirements-edge-runtime.txt"
     VALIDATE_MODE="benchmark-onnx"
     ;;
   train-export)
-    INSTALL_SPEC=".[preprocessing,train,edge-export]"
+    REQUIREMENTS_FILE="requirements-edge-train-export.txt"
     VALIDATE_MODE="train-export"
     ;;
   *)
@@ -86,8 +86,11 @@ export MPLCONFIGDIR="${CACHE_ROOT}/matplotlib"
 export XDG_CACHE_HOME="${CACHE_ROOT}"
 mkdir -p "$MPLCONFIGDIR"
 
-echo "[edge-smoke] installing package: pip install -e \"$INSTALL_SPEC\""
-python -m pip install -e "$INSTALL_SPEC"
+echo "[edge-smoke] installing requirements: $REQUIREMENTS_FILE"
+python -m pip install -r "$ROOT_DIR/$REQUIREMENTS_FILE"
+
+echo "[edge-smoke] installing editable package without dependency resolution"
+python -m pip install -e "$ROOT_DIR" --no-deps
 
 echo "[edge-smoke] validating environment mode=$VALIDATE_MODE"
 python scripts/validate_edge_environment.py --mode "$VALIDATE_MODE" --cache-root "$CACHE_ROOT"

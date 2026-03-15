@@ -68,6 +68,22 @@ python3 scripts/validate_edge_environment.py --mode ops
 make edge-smoke-env MODE=ops
 ```
 
+Profile-specific requirement manifests are also provided for edge nodes that need a stable install recipe or an offline wheelhouse sync:
+
+```bash
+# Edge ops only
+python -m pip install -r requirements-edge-ops.txt
+python -m pip install -e . --no-deps
+
+# Edge benchmark with ONNX runtime
+python -m pip install -r requirements-edge-runtime.txt
+python -m pip install -e . --no-deps
+
+# Full train/export node
+python -m pip install -r requirements-edge-train-export.txt
+python -m pip install -e . --no-deps
+```
+
 ### Basic Usage
 
 You can run the end-to-end pipeline (Preprocessing → Training → Evaluation) out of the box using our provided synthetic data generator and smoke test scripts:

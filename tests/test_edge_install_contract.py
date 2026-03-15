@@ -7,6 +7,24 @@ import tomllib
 from pathlib import Path
 
 
+def _read_requirements_lines(path: Path) -> list[str]:
+    lines: list[str] = []
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        lines.append(line)
+    return lines
+
+
+def _dedupe_preserving_order(items: list[str]) -> list[str]:
+    out: list[str] = []
+    for item in items:
+        if item not in out:
+            out.append(item)
+    return out
+
+
 def test_pyproject_exposes_minimal_edge_install_split() -> None:
     root = Path(__file__).resolve().parents[1]
     payload = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))
@@ -23,6 +41,25 @@ def test_pyproject_exposes_minimal_edge_install_split() -> None:
     assert optional["edge-runtime"] == ["onnxruntime>=1.17.0"]
     assert "tf2onnx>=1.16.0" in optional["edge-export"]
     assert "tensorflow>=2.14.0,<2.17.0" in optional["full"]
+
+
+def test_edge_requirements_manifests_match_pyproject_profiles() -> None:
+    root = Path(__file__).resolve().parents[1]
+    payload = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))
+    project = payload["project"]
+    deps = project["dependencies"]
+    optional = project["optional-dependencies"]
+
+    ops_lines = _read_requirements_lines(root / "requirements-edge-ops.txt")
+    runtime_lines = _read_requirements_lines(root / "requirements-edge-runtime.txt")
+    train_export_lines = _read_requirements_lines(root / "requirements-edge-train-export.txt")
+
+    assert ops_lines == deps
+    assert runtime_lines == ["-r requirements-edge-ops.txt", *optional["edge-runtime"]]
+    assert train_export_lines == [
+        "-r requirements-edge-ops.txt",
+        *_dedupe_preserving_order([*optional["preprocessing"], *optional["train"], *optional["edge-export"]]),
+    ]
 
 
 def test_validate_edge_environment_ops_mode_runs(tmp_path: Path) -> None:

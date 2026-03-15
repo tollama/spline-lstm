@@ -42,6 +42,16 @@ python3 scripts/validate_edge_environment.py --mode benchmark-onnx
 # full train/export node
 python3 scripts/validate_edge_environment.py --mode train-export
 
+# file-based edge installs
+python -m pip install -r requirements-edge-ops.txt
+python -m pip install -e . --no-deps
+
+python -m pip install -r requirements-edge-runtime.txt
+python -m pip install -e . --no-deps
+
+python -m pip install -r requirements-edge-train-export.txt
+python -m pip install -e . --no-deps
+
 # clean edge-node smoke flow
 make edge-smoke-env MODE=ops
 make edge-smoke-env MODE=benchmark-onnx
@@ -160,10 +170,16 @@ python3 -m src.preprocessing.smoke --run-id <RUN_ID>
 
 - `pip install -e .`
   - 용도: `ingest_edge_device_bench.py`, `edge_release_gate.py`, sample edge make targets
+- `requirements-edge-ops.txt`
+  - 용도: edge ops node의 file-based install / offline wheelhouse seed
 - `pip install -e ".[edge-runtime]"`
   - 용도: 위 + ONNX benchmark/runtime validation
+- `requirements-edge-runtime.txt`
+  - 용도: ONNX benchmark node의 file-based install / offline wheelhouse seed
 - `pip install -e ".[preprocessing,train,edge-export]"`
   - 용도: training, export, TFLite/ONNX export, full benchmark path
+- `requirements-edge-train-export.txt`
+  - 용도: train/export node의 file-based install / offline wheelhouse seed
 - `make edge-smoke-env MODE=<ops|benchmark-onnx|train-export>`
   - 용도: 새 venv 생성, 선택한 프로파일 설치, `validate_edge_environment.py` 검증
   - `MODE=ops`는 sample ingest + release gate까지 추가 검증
