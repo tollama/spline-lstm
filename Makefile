@@ -46,7 +46,9 @@ smoke-gate:
 edge-make-device-result:
 	@OUTPUT="$${OUTPUT:?OUTPUT is required (e.g. make edge-make-device-result OUTPUT=/tmp/android_edge.json)}"; \
 	MPLCFG="$${MPLCONFIGDIR:-/tmp/mpl-spline}"; \
+	XDGCACHE="$${XDG_CACHE_HOME:-/tmp/xdg-cache-spline}"; \
 	mkdir -p "$$MPLCFG"; \
+	mkdir -p "$$XDGCACHE"; \
 	EXTRA_ARGS=""; \
 	if [ -n "$${FROM_REPORT_JSON:-}" ]; then EXTRA_ARGS="$$EXTRA_ARGS --from-report-json $${FROM_REPORT_JSON}"; fi; \
 	if [ -n "$${RUNTIME_STACK:-}" ]; then EXTRA_ARGS="$$EXTRA_ARGS --runtime-stack $${RUNTIME_STACK}"; fi; \
@@ -66,14 +68,16 @@ edge-make-device-result:
 	if [ -n "$${ACCURACY_MAX_ABS_DIFF:-}" ]; then EXTRA_ARGS="$$EXTRA_ARGS --accuracy-max-abs-diff $${ACCURACY_MAX_ABS_DIFF}"; fi; \
 	if [ -n "$${ACCURACY_N_SAMPLES:-}" ]; then EXTRA_ARGS="$$EXTRA_ARGS --accuracy-n-samples $${ACCURACY_N_SAMPLES}"; fi; \
 	if [ -n "$${PER_HORIZON_RMSE:-}" ]; then EXTRA_ARGS="$$EXTRA_ARGS --per-horizon-rmse $${PER_HORIZON_RMSE}"; fi; \
-	eval "MPLCONFIGDIR=$$MPLCFG python3 scripts/make_edge_device_result.py --output $$OUTPUT $$EXTRA_ARGS"
+	eval "MPLCONFIGDIR=$$MPLCFG XDG_CACHE_HOME=$$XDGCACHE python3 scripts/make_edge_device_result.py --output $$OUTPUT $$EXTRA_ARGS"
 
 edge-ingest-example:
 	@RUN_ID="$${RUN_ID:?RUN_ID is required (e.g. make edge-ingest-example RUN_ID=edge-demo-001)}"; \
 	DEVICE_PROFILE="$${DEVICE_PROFILE:-android_high_end}"; \
 	DEVICE_JSON="$${DEVICE_JSON:-/tmp/$$RUN_ID-$$DEVICE_PROFILE-device.json}"; \
 	MPLCFG="$${MPLCONFIGDIR:-/tmp/mpl-spline}"; \
+	XDGCACHE="$${XDG_CACHE_HOME:-/tmp/xdg-cache-spline}"; \
 	mkdir -p "$$MPLCFG"; \
+	mkdir -p "$$XDGCACHE"; \
 	EXTRA_ARGS=""; \
 	if [ -n "$${FROM_REPORT_JSON:-}" ]; then EXTRA_ARGS="$$EXTRA_ARGS --from-report-json $${FROM_REPORT_JSON}"; fi; \
 	if [ -n "$${RUNTIME_STACK:-}" ]; then EXTRA_ARGS="$$EXTRA_ARGS --runtime-stack $${RUNTIME_STACK}"; else EXTRA_ARGS="$$EXTRA_ARGS --runtime-stack tflite"; fi; \
@@ -94,40 +98,46 @@ edge-ingest-example:
 	if [ -n "$${ACCURACY_N_SAMPLES:-}" ]; then EXTRA_ARGS="$$EXTRA_ARGS --accuracy-n-samples $${ACCURACY_N_SAMPLES}"; else EXTRA_ARGS="$$EXTRA_ARGS --accuracy-n-samples 64"; fi; \
 	if [ -n "$${PER_HORIZON_RMSE:-}" ]; then EXTRA_ARGS="$$EXTRA_ARGS --per-horizon-rmse $${PER_HORIZON_RMSE}"; else EXTRA_ARGS="$$EXTRA_ARGS --per-horizon-rmse 0.81,0.93,1.05"; fi; \
 	echo "[edge-ingest-example] generating $$DEVICE_JSON"; \
-	eval "MPLCONFIGDIR=$$MPLCFG python3 scripts/make_edge_device_result.py --output $$DEVICE_JSON $$EXTRA_ARGS"; \
+	eval "MPLCONFIGDIR=$$MPLCFG XDG_CACHE_HOME=$$XDGCACHE python3 scripts/make_edge_device_result.py --output $$DEVICE_JSON $$EXTRA_ARGS"; \
 	echo "[edge-ingest-example] ingesting $$DEVICE_PROFILE=$$DEVICE_JSON into RUN_ID=$$RUN_ID"; \
-	MPLCONFIGDIR="$$MPLCFG" python3 scripts/ingest_edge_device_bench.py --run-id "$$RUN_ID" --artifacts-dir "$${ARTIFACTS_DIR:-artifacts}" --device-result "$$DEVICE_PROFILE=$$DEVICE_JSON"
+	MPLCONFIGDIR="$$MPLCFG" XDG_CACHE_HOME="$$XDGCACHE" python3 scripts/ingest_edge_device_bench.py --run-id "$$RUN_ID" --artifacts-dir "$${ARTIFACTS_DIR:-artifacts}" --device-result "$$DEVICE_PROFILE=$$DEVICE_JSON"
 
 edge-release-example:
 	@RUN_ID="$${RUN_ID:?RUN_ID is required (e.g. make edge-release-example RUN_ID=edge-demo-001)}"; \
 	MPLCFG="$${MPLCONFIGDIR:-/tmp/mpl-spline}"; \
+	XDGCACHE="$${XDG_CACHE_HOME:-/tmp/xdg-cache-spline}"; \
 	mkdir -p "$$MPLCFG"; \
-	$(MAKE) edge-ingest-example RUN_ID="$$RUN_ID" ARTIFACTS_DIR="$${ARTIFACTS_DIR:-artifacts}" DEVICE_PROFILE="$${DEVICE_PROFILE:-android_high_end}" DEVICE_JSON="$${DEVICE_JSON:-/tmp/$$RUN_ID-$${DEVICE_PROFILE:-android_high_end}-device.json}" FROM_REPORT_JSON="$${FROM_REPORT_JSON:-}" RUNTIME_STACK="$${RUNTIME_STACK:-}" FALLBACK_CHAIN="$${FALLBACK_CHAIN:-}" STATUS="$${STATUS:-}" LATENCY_P50_MS="$${LATENCY_P50_MS:-}" LATENCY_P95_MS="$${LATENCY_P95_MS:-}" MEMORY_PEAK_MB="$${MEMORY_PEAK_MB:-}" SIZE_MB="$${SIZE_MB:-}" ATTEMPTS="$${ATTEMPTS:-1000}" FAILURES="$${FAILURES:-}" ACCURACY_RMSE="$${ACCURACY_RMSE:-}" ACCURACY_BASELINE_RMSE="$${ACCURACY_BASELINE_RMSE:-}" ACCURACY_RMSE_DEGRADATION_PCT="$${ACCURACY_RMSE_DEGRADATION_PCT:-}" ACCURACY_MAE="$${ACCURACY_MAE:-}" ACCURACY_WAPE="$${ACCURACY_WAPE:-}" ACCURACY_MAX_ABS_DIFF="$${ACCURACY_MAX_ABS_DIFF:-}" ACCURACY_N_SAMPLES="$${ACCURACY_N_SAMPLES:-}" PER_HORIZON_RMSE="$${PER_HORIZON_RMSE:-}" MPLCONFIGDIR="$$MPLCFG"; \
+	mkdir -p "$$XDGCACHE"; \
+	$(MAKE) edge-ingest-example RUN_ID="$$RUN_ID" ARTIFACTS_DIR="$${ARTIFACTS_DIR:-artifacts}" DEVICE_PROFILE="$${DEVICE_PROFILE:-android_high_end}" DEVICE_JSON="$${DEVICE_JSON:-/tmp/$$RUN_ID-$${DEVICE_PROFILE:-android_high_end}-device.json}" FROM_REPORT_JSON="$${FROM_REPORT_JSON:-}" RUNTIME_STACK="$${RUNTIME_STACK:-}" FALLBACK_CHAIN="$${FALLBACK_CHAIN:-}" STATUS="$${STATUS:-}" LATENCY_P50_MS="$${LATENCY_P50_MS:-}" LATENCY_P95_MS="$${LATENCY_P95_MS:-}" MEMORY_PEAK_MB="$${MEMORY_PEAK_MB:-}" SIZE_MB="$${SIZE_MB:-}" ATTEMPTS="$${ATTEMPTS:-1000}" FAILURES="$${FAILURES:-}" ACCURACY_RMSE="$${ACCURACY_RMSE:-}" ACCURACY_BASELINE_RMSE="$${ACCURACY_BASELINE_RMSE:-}" ACCURACY_RMSE_DEGRADATION_PCT="$${ACCURACY_RMSE_DEGRADATION_PCT:-}" ACCURACY_MAE="$${ACCURACY_MAE:-}" ACCURACY_WAPE="$${ACCURACY_WAPE:-}" ACCURACY_MAX_ABS_DIFF="$${ACCURACY_MAX_ABS_DIFF:-}" ACCURACY_N_SAMPLES="$${ACCURACY_N_SAMPLES:-}" PER_HORIZON_RMSE="$${PER_HORIZON_RMSE:-}" MPLCONFIGDIR="$$MPLCFG" XDG_CACHE_HOME="$$XDGCACHE"; \
 	echo "[edge-release-example] applying release gate for RUN_ID=$$RUN_ID"; \
-	MPLCONFIGDIR="$$MPLCFG" python3 scripts/edge_release_gate.py --run-id "$$RUN_ID" --artifacts-dir "$${ARTIFACTS_DIR:-artifacts}" --required-profiles "$${REQUIRED_PROFILES:-$${DEVICE_PROFILE:-android_high_end}}"
+	MPLCONFIGDIR="$$MPLCFG" XDG_CACHE_HOME="$$XDGCACHE" python3 scripts/edge_release_gate.py --run-id "$$RUN_ID" --artifacts-dir "$${ARTIFACTS_DIR:-artifacts}" --required-profiles "$${REQUIRED_PROFILES:-$${DEVICE_PROFILE:-android_high_end}}"
 
 edge-ingest-device:
 	@RUN_ID="$${RUN_ID:?RUN_ID is required (e.g. make edge-ingest-device RUN_ID=...)}"; \
 	DEVICE_RESULTS="$${DEVICE_RESULTS:?DEVICE_RESULTS is required (e.g. android_high_end=/tmp/android.json,ios_high_end=/tmp/ios.json)}"; \
 	MPLCFG="$${MPLCONFIGDIR:-/tmp/mpl-spline}"; \
+	XDGCACHE="$${XDG_CACHE_HOME:-/tmp/xdg-cache-spline}"; \
 	mkdir -p "$$MPLCFG"; \
+	mkdir -p "$$XDGCACHE"; \
 	IFS=','; \
 	set -- $$DEVICE_RESULTS; \
 	ARGS=""; \
 	for item in "$$@"; do ARGS="$$ARGS --device-result $$item"; done; \
-	eval "MPLCONFIGDIR=$$MPLCFG python3 scripts/ingest_edge_device_bench.py --run-id $$RUN_ID --artifacts-dir $${ARTIFACTS_DIR:-artifacts} $$ARGS"
+	eval "MPLCONFIGDIR=$$MPLCFG XDG_CACHE_HOME=$$XDGCACHE python3 scripts/ingest_edge_device_bench.py --run-id $$RUN_ID --artifacts-dir $${ARTIFACTS_DIR:-artifacts} $$ARGS"
 
 edge-release-gate:
 	@RUN_ID="$${RUN_ID:?RUN_ID is required (e.g. make edge-release-gate RUN_ID=...)}"; \
 	MPLCFG="$${MPLCONFIGDIR:-/tmp/mpl-spline}"; \
+	XDGCACHE="$${XDG_CACHE_HOME:-/tmp/xdg-cache-spline}"; \
 	mkdir -p "$$MPLCFG"; \
+	mkdir -p "$$XDGCACHE"; \
 	EXTRA_ARGS=""; \
 	if [ -n "$${DEVICE_RESULTS:-}" ]; then \
 	  IFS=','; set -- $$DEVICE_RESULTS; \
 	  for item in "$$@"; do EXTRA_ARGS="$$EXTRA_ARGS --device-result $$item"; done; \
 	fi; \
 	if [ -n "$${DEVICE_RESULTS_DIR:-}" ]; then EXTRA_ARGS="$$EXTRA_ARGS --device-results-dir $${DEVICE_RESULTS_DIR}"; fi; \
-	eval "MPLCONFIGDIR=$$MPLCFG python3 scripts/edge_release_gate.py \
+	eval "MPLCONFIGDIR=$$MPLCFG XDG_CACHE_HOME=$$XDGCACHE python3 scripts/edge_release_gate.py \
 	  --run-id $$RUN_ID \
 	  --artifacts-dir $${ARTIFACTS_DIR:-artifacts} \
 	  --required-profiles $${REQUIRED_PROFILES:-android_high_end,ios_high_end} \
