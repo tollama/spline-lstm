@@ -9,6 +9,7 @@ Related docs:
 - [EDGE_AIRGAPPED_RUNBOOK.md](/Users/yongchoelchoi/Documents/TollamaAI-Github/spline-lstm/docs/EDGE_AIRGAPPED_RUNBOOK.md)
 - [MOBILE_CHECKSUM_VERIFICATION.md](/Users/yongchoelchoi/Documents/TollamaAI-Github/spline-lstm/docs/MOBILE_CHECKSUM_VERIFICATION.md)
 - [MOBILE_RELEASE_CHECKLIST.md](/Users/yongchoelchoi/Documents/TollamaAI-Github/spline-lstm/docs/MOBILE_RELEASE_CHECKLIST.md)
+- [MOBILE_TELEMETRY_UPLOAD.md](/Users/yongchoelchoi/Documents/TollamaAI-Github/spline-lstm/docs/MOBILE_TELEMETRY_UPLOAD.md)
 
 ## 1. Deployment flow
 
@@ -18,6 +19,8 @@ Related docs:
 4. Run native-device benchmark collection and emit a device-result JSON.
 5. Ingest the device-result JSON with [scripts/ingest_edge_device_bench.py](/Users/yongchoelchoi/Documents/TollamaAI-Github/spline-lstm/scripts/ingest_edge_device_bench.py).
 6. Run [scripts/edge_release_gate.py](/Users/yongchoelchoi/Documents/TollamaAI-Github/spline-lstm/scripts/edge_release_gate.py) for promotion.
+
+Instead of shelling out to ingest manually, apps can upload directly to the backend endpoint documented in [MOBILE_TELEMETRY_UPLOAD.md](/Users/yongchoelchoi/Documents/TollamaAI-Github/spline-lstm/docs/MOBILE_TELEMETRY_UPLOAD.md).
 
 ## 2. Runtime policy
 
@@ -100,6 +103,18 @@ Reference examples:
 - [mobile_benchmark_result_ios_iphone15pro.json](/Users/yongchoelchoi/Documents/TollamaAI-Github/spline-lstm/examples/mobile_benchmark_result_ios_iphone15pro.json)
 - [MobileBenchmarkEmitter.kt](/Users/yongchoelchoi/Documents/TollamaAI-Github/spline-lstm/examples/mobile/android/MobileBenchmarkEmitter.kt)
 - [MobileBenchmarkEmitter.swift](/Users/yongchoelchoi/Documents/TollamaAI-Github/spline-lstm/examples/mobile/ios/MobileBenchmarkEmitter.swift)
+
+Validate a native benchmark payload before ingest:
+
+```bash
+python3 scripts/validate_mobile_benchmark_result.py \
+  --benchmark-result examples/mobile_benchmark_result_android_pixel8.json \
+  --expected-platform android
+
+make edge-validate-mobile-benchmark \
+  BENCHMARK_RESULT=examples/mobile_benchmark_result_ios_iphone15pro.json \
+  EXPECTED_PLATFORM=ios
+```
 
 Those payloads can be ingested directly:
 

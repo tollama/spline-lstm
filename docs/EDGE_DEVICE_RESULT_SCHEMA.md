@@ -9,6 +9,7 @@ Reference example:
 - `examples/mobile_benchmark_result_android_pixel8.json`
 - `examples/mobile_benchmark_result_ios_iphone15pro.json`
 - Generator script: `scripts/make_edge_device_result.py`
+- Mobile validator: `scripts/validate_mobile_benchmark_result.py`
 
 ## Purpose
 

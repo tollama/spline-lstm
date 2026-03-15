@@ -178,3 +178,99 @@ def test_mobile_bundle_examples_validate() -> None:
             text=True,
         )
         assert proc.returncode == 0, proc.stderr
+
+
+def test_mobile_benchmark_examples_validate() -> None:
+    root = Path(__file__).resolve().parents[1]
+    for path, platform in (
+        ("examples/mobile_benchmark_result_android_pixel8.json", "android"),
+        ("examples/mobile_benchmark_result_ios_iphone15pro.json", "ios"),
+    ):
+        proc = subprocess.run(
+            [
+                sys.executable,
+                "scripts/validate_mobile_benchmark_result.py",
+                "--benchmark-result",
+                path,
+                "--expected-platform",
+                platform,
+            ],
+            cwd=str(root),
+            capture_output=True,
+            text=True,
+        )
+        assert proc.returncode == 0, proc.stderr
+
+
+def test_mobile_benchmark_validator_rejects_platform_mismatch(tmp_path: Path) -> None:
+    root = Path(__file__).resolve().parents[1]
+    payload = tmp_path / "bad_mobile_benchmark.json"
+    payload.write_text(
+        json.dumps(
+            {
+                "runtime_stack": "tflite",
+                "latency_ms": {"p50": 10.0, "p95": 12.0},
+                "memory_peak_mb": 120.0,
+                "size_mb": 3.0,
+                "attempts": 100,
+                "failures": 0,
+                "metadata": {
+                    "platform": "android",
+                    "device_model": "Pixel 8",
+                    "os_version": "Android 15",
+                    "app_version": "1.12.0",
+                    "build_number": "12034",
+                    "bundle_id": "ai.tollama.splineforecast",
+                },
+                "accuracy": {"rmse": 0.9, "baseline_rmse": 1.0},
+            }
+        ),
+        encoding="utf-8",
+    )
+    proc = subprocess.run(
+        [
+            sys.executable,
+            "scripts/validate_mobile_benchmark_result.py",
+            "--benchmark-result",
+            str(payload),
+            "--expected-platform",
+            "ios",
+        ],
+        cwd=str(root),
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode == 1
+    assert "does not match expected platform" in proc.stdout
+
+
+def test_mobile_benchmark_validator_rejects_missing_metadata_and_accuracy(tmp_path: Path) -> None:
+    root = Path(__file__).resolve().parents[1]
+    payload = tmp_path / "missing_fields_mobile_benchmark.json"
+    payload.write_text(
+        json.dumps(
+            {
+                "runtime_stack": "onnx",
+                "latency_ms": {"p50": 11.0, "p95": 13.5},
+                "memory_peak_mb": 130.0,
+                "size_mb": 3.4,
+                "attempts": 100,
+                "failures": 0,
+            }
+        ),
+        encoding="utf-8",
+    )
+    proc = subprocess.run(
+        [
+            sys.executable,
+            "scripts/validate_mobile_benchmark_result.py",
+            "--benchmark-result",
+            str(payload),
+        ],
+        cwd=str(root),
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode == 1
+    assert "metadata block is required" in proc.stdout
+    assert "accuracy block is required" in proc.stdout

@@ -188,4 +188,5 @@ If you only have measured numbers, `scripts/make_edge_device_result.py` will gen
 - Mobile bundle schema: `docs/MOBILE_BUNDLE_SCHEMA.md`
 - Mobile checksum verification: `docs/MOBILE_CHECKSUM_VERIFICATION.md`
 - Mobile release checklist: `docs/MOBILE_RELEASE_CHECKLIST.md`
+- Mobile telemetry upload: `docs/MOBILE_TELEMETRY_UPLOAD.md`
 - Release gate checklist: `RELEASE_CHECKLIST.md`

@@ -1,0 +1,39 @@
+{
+  "run_id": "edge-demo-001",
+  "device_profile": "android_high_end",
+  "expected_platform": "android",
+  "strict_runtime_policy": false,
+  "require_accuracy": true,
+  "require_metadata": true,
+  "benchmark_result": {
+    "runtime_stack": "tflite",
+    "fallback_chain": ["tflite", "keras"],
+    "status": "succeeded",
+    "latency_ms": {
+      "p50": 15.8,
+      "p95": 22.1
+    },
+    "memory_peak_mb": 198.4,
+    "size_mb": 4.2,
+    "attempts": 250,
+    "failures": 0,
+    "metadata": {
+      "platform": "android",
+      "device_model": "Pixel 8",
+      "os_version": "Android 15",
+      "app_version": "1.12.0",
+      "build_number": "12034",
+      "bundle_id": "ai.tollama.splineforecast"
+    },
+    "accuracy": {
+      "rmse": 0.92,
+      "baseline_rmse": 1.0,
+      "rmse_degradation_pct": -8.0,
+      "mae": 0.7,
+      "wape": 8.4,
+      "max_abs_diff": 1.36,
+      "n_samples": 64,
+      "per_horizon_rmse": [0.79, 0.9, 1.02]
+    }
+  }
+}

@@ -1,4 +1,4 @@
-.PHONY: help lint format type-check ci-gate quick-gate smoke-gate edge-smoke-env edge-wheelhouse-build edge-wheelhouse-install edge-make-mobile-bundle edge-validate-mobile-bundle edge-make-device-result edge-ingest-example edge-release-example edge-ingest-device edge-release-gate edge-selection-lane full-regression pre-release-verify
+.PHONY: help lint format type-check ci-gate quick-gate smoke-gate edge-smoke-env edge-wheelhouse-build edge-wheelhouse-install edge-make-mobile-bundle edge-validate-mobile-bundle edge-validate-mobile-benchmark edge-make-device-result edge-ingest-example edge-release-example edge-ingest-device edge-release-gate edge-selection-lane full-regression pre-release-verify
 
 help:
 	@echo "Common operator flows"
@@ -13,6 +13,7 @@ help:
 	@echo "  make edge-wheelhouse-install # install selected edge profile from a wheelhouse"
 	@echo "  make edge-make-mobile-bundle # generate Android/iOS mobile bundle manifest from export manifest"
 	@echo "  make edge-validate-mobile-bundle # validate Android/iOS mobile bundle manifest"
+	@echo "  make edge-validate-mobile-benchmark # validate Android/iOS mobile benchmark payload"
 	@echo "  make edge-make-device-result # generate a real-device benchmark JSON payload"
 	@echo "  make edge-ingest-example # generate + ingest one sample device benchmark payload for RUN_ID"
 	@echo "  make edge-release-example # generate + ingest + release-gate one sample device payload for RUN_ID"
@@ -93,6 +94,15 @@ edge-validate-mobile-bundle:
 	EXTRA_ARGS=""; \
 	if [ "$${STRICT_PLATFORM_POLICY:-0}" = "1" ]; then EXTRA_ARGS="$$EXTRA_ARGS --strict-platform-policy"; fi; \
 	eval "python3 scripts/validate_mobile_bundle.py --bundle-manifest $$BUNDLE_MANIFEST $$EXTRA_ARGS"
+
+edge-validate-mobile-benchmark:
+	@BENCHMARK_RESULT="$${BENCHMARK_RESULT:?BENCHMARK_RESULT is required (e.g. make edge-validate-mobile-benchmark BENCHMARK_RESULT=examples/mobile_benchmark_result_android_pixel8.json)}"; \
+	EXTRA_ARGS=""; \
+	if [ -n "$${EXPECTED_PLATFORM:-}" ]; then EXTRA_ARGS="$$EXTRA_ARGS --expected-platform $${EXPECTED_PLATFORM}"; fi; \
+	if [ "$${NO_REQUIRE_METADATA:-0}" = "1" ]; then EXTRA_ARGS="$$EXTRA_ARGS --no-require-metadata"; fi; \
+	if [ "$${NO_REQUIRE_ACCURACY:-0}" = "1" ]; then EXTRA_ARGS="$$EXTRA_ARGS --no-require-accuracy"; fi; \
+	if [ "$${STRICT_RUNTIME_POLICY:-0}" = "1" ]; then EXTRA_ARGS="$$EXTRA_ARGS --strict-runtime-policy"; fi; \
+	eval "python3 scripts/validate_mobile_benchmark_result.py --benchmark-result $$BENCHMARK_RESULT $$EXTRA_ARGS"
 
 edge-make-device-result:
 	@OUTPUT="$${OUTPUT:?OUTPUT is required (e.g. make edge-make-device-result OUTPUT=/tmp/android_edge.json)}"; \

@@ -62,3 +62,13 @@ class TollamaChatRequest(BaseModel):
     model: str
     messages: list[dict[str, Any]]
     stream: bool | None = False
+
+
+class MobileBenchmarkIngestRequest(BaseModel):
+    run_id: str
+    device_profile: str
+    benchmark_result: dict[str, Any]
+    expected_platform: str | None = Field(default=None, pattern="^(android|ios)$")
+    strict_runtime_policy: bool = False
+    require_accuracy: bool = True
+    require_metadata: bool = True

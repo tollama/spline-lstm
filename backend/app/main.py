@@ -11,7 +11,7 @@ import uuid
 
 from backend.app.config import _REQUEST_ID, API_PREFIX, SECURITY, STORE_PATH, logger
 from backend.app.executor import JobExecutor
-from backend.app.routes import agent, forecast, health, jobs, runs, tollama
+from backend.app.routes import agent, forecast, health, jobs, mobile, runs, tollama
 from backend.app.store import JobRecord, JobStore  # noqa: F401 - re-exported for backward compat
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
@@ -106,3 +106,4 @@ app.include_router(forecast.router)
 app.include_router(agent.router)
 app.include_router(tollama.router)
 app.include_router(runs.router)
+app.include_router(mobile.router)

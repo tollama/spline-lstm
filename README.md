@@ -232,8 +232,10 @@ Smartphone deployment references:
 - `docs/MOBILE_BUNDLE_SCHEMA.md`
 - `docs/MOBILE_CHECKSUM_VERIFICATION.md`
 - `docs/MOBILE_RELEASE_CHECKLIST.md`
+- `docs/MOBILE_TELEMETRY_UPLOAD.md`
 - `scripts/make_mobile_bundle_manifest.py`
 - `scripts/validate_mobile_bundle.py`
+- `scripts/validate_mobile_benchmark_result.py`
 
 Backend runtime-aware inference endpoint:
 - `POST /api/v1/forecast/infer` (reads `runtime_stack` + `fallback_chain`, then attempts `tflite -> onnx -> keras -> naive`)

@@ -114,6 +114,11 @@ jobs:
           python scripts/validate_mobile_bundle.py --bundle-manifest examples/mobile_bundle_android_tflite.json
           python scripts/validate_mobile_bundle.py --bundle-manifest examples/mobile_bundle_ios_onnx.json
 
+      - name: Validate mobile benchmark examples
+        run: |
+          python scripts/validate_mobile_benchmark_result.py --benchmark-result examples/mobile_benchmark_result_android_pixel8.json --expected-platform android
+          python scripts/validate_mobile_benchmark_result.py --benchmark-result examples/mobile_benchmark_result_ios_iphone15pro.json --expected-platform ios
+
       - name: Validate mobile benchmark examples ingest
         run: |
           python scripts/ingest_edge_device_bench.py \

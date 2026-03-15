@@ -76,3 +76,36 @@ def test_run_submit_job_status_logs_cancel_and_results_contract() -> None:
     assert cancel.status_code == 200
     canceled = cancel.json()["data"]
     assert canceled["status"] == "canceled"
+
+
+def test_mobile_benchmark_ingest_api_contract() -> None:
+    payload = {
+        "run_id": "contract-mobile-001",
+        "device_profile": "android_high_end",
+        "expected_platform": "android",
+        "benchmark_result": {
+            "runtime_stack": "tflite",
+            "fallback_chain": ["tflite", "keras"],
+            "latency_ms": {"p50": 15.0, "p95": 19.0},
+            "memory_peak_mb": 180.0,
+            "size_mb": 4.0,
+            "attempts": 100,
+            "failures": 0,
+            "metadata": {
+                "platform": "android",
+                "device_model": "Pixel 8",
+                "os_version": "Android 15",
+                "app_version": "1.12.0",
+                "build_number": "12034",
+                "bundle_id": "ai.tollama.splineforecast",
+            },
+            "accuracy": {"rmse": 0.9, "baseline_rmse": 1.0},
+        },
+    }
+    response = client.post("/api/v1/mobile/benchmarks:ingest", json=payload)
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert data["run_id"] == "contract-mobile-001"
+    assert data["device_profile"] == "android_high_end"
+    assert data["validation"]["ok"] is True
+    assert data["record"]["metadata"]["platform"] == "android"
