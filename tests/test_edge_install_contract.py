@@ -48,3 +48,20 @@ def test_validate_edge_environment_ops_mode_runs(tmp_path: Path) -> None:
     assert payload["ok"] is True
     assert payload["checks"][0]["skipped"] is True
     assert payload["recommended_env"]["XDG_CACHE_HOME"] == str(cache_root)
+
+
+def test_importing_src_does_not_eagerly_load_tensorflow() -> None:
+    root = Path(__file__).resolve().parents[1]
+    proc = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import json, sys; import src; print(json.dumps({'tensorflow_loaded': 'tensorflow' in sys.modules}))",
+        ],
+        cwd=str(root),
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode == 0, proc.stderr
+    payload = json.loads(proc.stdout)
+    assert payload["tensorflow_loaded"] is False
