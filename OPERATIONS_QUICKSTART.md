@@ -30,6 +30,39 @@ RUN_ID=ops-quick-001 EPOCHS=1 make smoke-gate
 python3 src/training/runner.py --synthetic --future-covariates temp,promo --cv-splits 3 --epochs 1
 ```
 
+## Edge benchmark flow
+
+```bash
+# 1) train/export with real edge holdout bundle
+python3 -m src.training.runner \
+  --run-id edge-ops-001 \
+  --synthetic \
+  --epochs 1 \
+  --export-formats onnx,tflite \
+  --edge-eval-samples 64
+
+# 2) benchmark exported runtimes
+python3 scripts/benchmark_edge.py \
+  --run-id edge-ops-001 \
+  --artifacts-dir artifacts
+
+# 3) ingest real-device JSON if available
+python3 scripts/ingest_edge_device_bench.py \
+  --run-id edge-ops-001 \
+  --artifacts-dir artifacts \
+  --device-result android_high_end=/tmp/android_edge.json
+```
+
+Benchmark reports now surface:
+
+- `accuracy.rmse`
+- `accuracy.baseline_rmse`
+- `accuracy.rmse_degradation_pct`
+- `accuracy.wape`
+- `accuracy.per_horizon_rmse`
+
+Preferred real-device JSON also includes an `accuracy` block. See `docs/EDGE_DEVICE_RESULT_SCHEMA.md`.
+
 ## Troubleshooting pointers
 
 - **Smoke failed with missing artifacts**
@@ -53,6 +86,9 @@ python3 src/training/runner.py --synthetic --future-covariates temp,promo --cv-s
 - Preprocessor object: `artifacts/models/<run_id>/preprocessor.pkl`
 - Model checkpoints: `artifacts/checkpoints/<run_id>/best.keras`, `last.keras`
 - Metrics: `artifacts/metrics/<run_id>.json`
+- Edge evaluation bundle: `artifacts/exports/<run_id>/edge_eval.npz`
+- Edge export manifest: `artifacts/exports/<run_id>/manifest.json`
+- Edge benchmark reports: `artifacts/edge_bench/<run_id>/*.json`
 - Report: `artifacts/reports/<run_id>.md`
 - Smoke validation: `artifacts/reports/<run_id>_smoke_validation.md`
 - Compare outputs: `artifacts/comparisons/<run_id>.json`, `.md`
@@ -62,4 +98,5 @@ python3 src/training/runner.py --synthetic --future-covariates temp,promo --cv-s
 
 - Project entry: `README.md`
 - Detailed operations: `docs/RUNBOOK.md`
+- Edge device schema: `docs/EDGE_DEVICE_RESULT_SCHEMA.md`
 - Release gate checklist: `RELEASE_CHECKLIST.md`

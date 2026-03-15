@@ -372,14 +372,24 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(description="Ingest real-device benchmark results into edge benchmark artifacts")
+    p = argparse.ArgumentParser(
+        description="Ingest real-device benchmark results into edge benchmark artifacts",
+        epilog=(
+            "Accepted device-result JSON fields: runtime/runtime_stack, latency_p50_ms/latency_p95_ms "
+            "or latency_ms{p50,p95} or latency_ms_samples, size_mb/model_size_bytes, "
+            "ram_peak_mb/memory_peak_mb, attempts, failures, fallback_chain, and optional accuracy "
+            "block. The preferred accuracy payload is "
+            "accuracy={rmse, baseline_rmse, rmse_degradation_pct?, mae?, wape?, per_horizon_rmse?}. "
+            "When accuracy is supplied, release gating prefers it over offline metrics JSON."
+        ),
+    )
     p.add_argument("--run-id", type=str, required=True)
     p.add_argument("--artifacts-dir", type=str, default="artifacts")
     p.add_argument(
         "--device-result",
         action="append",
         default=[],
-        help="Repeatable '<device_profile>=<json_path>' entry",
+        help="Repeatable '<device_profile>=<json_path>' entry. JSON may include an optional accuracy block.",
     )
     p.add_argument(
         "--device-results-dir",

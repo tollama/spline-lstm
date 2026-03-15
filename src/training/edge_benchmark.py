@@ -399,7 +399,16 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(description="Benchmark exported edge models")
+    p = argparse.ArgumentParser(
+        description="Benchmark exported edge models with latency, size, stability, and holdout accuracy when available",
+        epilog=(
+            "If artifacts/exports/<run_id>/manifest.json includes an 'edge_evaluation' bundle, "
+            "the benchmark report adds accuracy.rmse, accuracy.baseline_rmse, "
+            "accuracy.rmse_degradation_pct, accuracy.wape, and accuracy.per_horizon_rmse "
+            "computed on real test windows. Otherwise the harness falls back to input-spec-based "
+            "dummy inputs for runtime-only benchmarking."
+        ),
+    )
     p.add_argument("--run-id", type=str, required=True)
     p.add_argument("--artifacts-dir", type=str, default="artifacts")
     p.add_argument("--device", action="append", default=None, help="Device profile name. Repeatable.")

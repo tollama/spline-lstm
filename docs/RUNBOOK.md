@@ -4,6 +4,7 @@ Related docs:
 - Project overview: `../README.md`
 - GUI/backend production cutover checklist: `./GUI_PROD_CUTOVER_CHECKLIST.md`
 - Operator quick map: `../OPERATIONS_QUICKSTART.md`
+- Edge device result schema: `./EDGE_DEVICE_RESULT_SCHEMA.md`
 - Release gate checklist (cutover): `../RELEASE_CHECKLIST.md`
 - GUI production hardening closeout: `./GUI_PROD_HARDENING_CLOSEOUT.md`
 
@@ -37,6 +38,9 @@ bash scripts/smoke_test.sh
 - 체크포인트: `artifacts/checkpoints/{run_id}/best.keras`, `last.keras`
 - 지표: `artifacts/metrics/{run_id}.json`
 - 리포트: `artifacts/reports/{run_id}.md`
+- Edge 평가 번들: `artifacts/exports/{run_id}/edge_eval.npz`
+- Edge export manifest: `artifacts/exports/{run_id}/manifest.json`
+- Edge benchmark report: `artifacts/edge_bench/{run_id}/*.json`
 
 ## 4) 자동 차단 정책 (run_id mismatch)
 `python3 -m src.training.runner` 실행 시 아래가 불일치하면 즉시 실패:
@@ -117,6 +121,18 @@ bash scripts/smoke_test.sh
 ```bash
 python3 -m src.preprocessing.smoke --run-id <RUN_ID>
 ```
+
+## 7.1 Edge 정확도 게이트 운영 포인트
+
+- `scripts/benchmark_edge.py`는 export manifest 내 `edge_evaluation`이 있으면 실제 test holdout 기준 정확도를 report에 기록한다.
+- 우선 확인 키:
+  - `accuracy.rmse`
+  - `accuracy.baseline_rmse`
+  - `accuracy.rmse_degradation_pct`
+  - `accuracy.wape`
+  - `accuracy.per_horizon_rmse`
+- 실디바이스 ingest JSON도 동일한 `accuracy` block을 포함하는 것이 권장된다.
+- release gate는 device report의 `accuracy.rmse_degradation_pct`가 있으면 그것을 우선 사용하고, 없으면 offline metrics JSON으로 fallback 한다.
 
 ## 7) 최소 운영 점검 체크리스트
 - [ ] E2E 명령 1회 성공

@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""CLI wrapper for edge benchmark harness."""
+"""CLI wrapper for edge benchmark harness.
+
+Reports latency/size/stability and, when the export manifest contains
+`edge_evaluation`, real holdout forecast accuracy for the exported runtime.
+"""
 
 from __future__ import annotations
 

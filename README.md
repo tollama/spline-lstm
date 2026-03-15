@@ -101,6 +101,14 @@ python3 scripts/benchmark_edge.py \
   --artifacts-dir artifacts \
   --edge-sla balanced
 
+# The benchmark report now includes real holdout accuracy when the export
+# manifest contains edge_evaluation metadata from the runner:
+# - accuracy.rmse
+# - accuracy.baseline_rmse
+# - accuracy.rmse_degradation_pct
+# - accuracy.wape
+# - accuracy.per_horizon_rmse
+
 # Ingest real-device benchmark JSON (Android/iOS) into standard edge_bench schema
 python3 scripts/ingest_edge_device_bench.py \
   --run-id edge-demo-001 \
@@ -108,6 +116,24 @@ python3 scripts/ingest_edge_device_bench.py \
   --device-result android_high_end=/tmp/android_bench.json \
   --device-result ios_high_end=/tmp/ios_bench.json \
   --edge-sla balanced
+
+# Preferred real-device JSON shape:
+# {
+#   "runtime_stack": "tflite",
+#   "latency_ms": {"p50": 18.4, "p95": 24.7},
+#   "memory_peak_mb": 212.0,
+#   "size_mb": 4.2,
+#   "attempts": 200,
+#   "failures": 0,
+#   "accuracy": {
+#     "rmse": 0.94,
+#     "baseline_rmse": 1.00,
+#     "rmse_degradation_pct": -6.0,
+#     "mae": 0.71,
+#     "wape": 8.9,
+#     "per_horizon_rmse": [0.81, 0.93, 1.05]
+#   }
+# }
 
 # Apply OTA release gate (blocks promotion on SLA miss)
 python3 scripts/edge_release_gate.py \
@@ -145,6 +171,7 @@ python3 scripts/edge_selection_lane.py \
 
 Artifacts:
 - Export manifest: `artifacts/exports/<run_id>/manifest.json`
+- Edge evaluation bundle: `artifacts/exports/<run_id>/edge_eval.npz`
 - OTA manifest: `artifacts/exports/<run_id>/ota_manifest.json`
 - Device benchmark reports: `artifacts/edge_bench/<run_id>/*.json`
 - Leaderboard: `artifacts/edge_bench/<run_id>/leaderboard.json`
@@ -195,6 +222,7 @@ For production deployments, day-2 operations, and specific feature details, plea
 - **Quick Operator Commands:** [`OPERATIONS_QUICKSTART.md`](OPERATIONS_QUICKSTART.md)
 - **Architecture & Technology Overview:** [`docs/architecture.md`](docs/architecture.md)
 - **Detailed Runbook (Failure Handling, Security):** [`docs/RUNBOOK.md`](docs/RUNBOOK.md)
+- **Edge Device Result Schema:** [`docs/EDGE_DEVICE_RESULT_SCHEMA.md`](docs/EDGE_DEVICE_RESULT_SCHEMA.md)
 - **GUI Production Cutover:** [`docs/internal/GUI_PROD_CUTOVER_CHECKLIST.md`](docs/internal/GUI_PROD_CUTOVER_CHECKLIST.md)
 - **Phase 6 Details & Agent Ecosystem:** [`docs/internal/PHASE6_AGENT_ECOSYSTEM_PLAN.md`](docs/internal/PHASE6_AGENT_ECOSYSTEM_PLAN.md)
 
