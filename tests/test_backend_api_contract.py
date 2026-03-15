@@ -109,6 +109,7 @@ def test_mobile_benchmark_ingest_api_contract() -> None:
     assert data["device_profile"] == "android_high_end"
     assert data["validation"]["ok"] is True
     assert data["record"]["metadata"]["platform"] == "android"
+    assert "receipt_id" in data["receipt"]
 
 
 def test_mobile_benchmark_batch_ingest_api_contract() -> None:

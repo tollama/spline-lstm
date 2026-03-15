@@ -52,6 +52,8 @@ def _security_config() -> dict[str, Any]:
         else [],
     )
     trusted_hosts = _env_csv("SPLINE_TRUSTED_HOSTS", ["localhost", "127.0.0.1", "testserver"])
+    mobile_upload_signing_secret = os.getenv("SPLINE_MOBILE_UPLOAD_SIGNING_SECRET")
+    mobile_upload_timestamp_skew_sec = int(os.getenv("SPLINE_MOBILE_UPLOAD_TIMESTAMP_SKEW_SEC", "300"))
     return {
         "env": env,
         "dev_mode": dev_mode,
@@ -59,6 +61,9 @@ def _security_config() -> dict[str, Any]:
         "auth_required": auth_required,
         "cors_origins": cors_origins,
         "trusted_hosts": trusted_hosts,
+        "mobile_upload_signing_secret": mobile_upload_signing_secret,
+        "mobile_upload_signing_required": bool(mobile_upload_signing_secret),
+        "mobile_upload_timestamp_skew_sec": mobile_upload_timestamp_skew_sec,
     }
 
 

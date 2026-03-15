@@ -10,6 +10,11 @@ Batch variant:
 
 `POST /api/v1/mobile/benchmarks:ingest-batch`
 
+Receipt endpoints:
+
+- `GET /api/v1/mobile/benchmarks/receipts/{receipt_id}`
+- `GET /api/v1/mobile/benchmarks/receipts?run_id=<run_id>&device_profile=<profile>`
+
 ## Request body
 
 ```json
@@ -97,3 +102,31 @@ If validation fails, the endpoint returns `400` with a structured error payload 
 If auth is enabled in the backend, include `X-API-Token`.
 
 For retry-safe uploads from mobile queues, include `X-Idempotency-Key`. Repeated requests with the same key return the cached response.
+
+## Optional signed upload mode
+
+If the backend is started with `SPLINE_MOBILE_UPLOAD_SIGNING_SECRET`, mobile upload endpoints require:
+
+- `X-Mobile-Timestamp`
+- `X-Mobile-Signature`
+
+Signature format:
+
+`hex(hmac_sha256(secret, "<timestamp>\\n<raw_request_body>"))`
+
+The backend also enforces timestamp freshness with `SPLINE_MOBILE_UPLOAD_TIMESTAMP_SKEW_SEC` (default `300` seconds).
+
+## Receipts
+
+Successful uploads return a receipt block:
+
+```json
+{
+  "receipt": {
+    "receipt_id": "mobile-receipt-1234abcd",
+    "receipt_path": "artifacts/mobile_receipts/mobile-receipt-1234abcd.json"
+  }
+}
+```
+
+Use the receipt endpoints to audit whether a phone upload was accepted and which stored benchmark record it produced.

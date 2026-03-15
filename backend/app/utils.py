@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import copy
+import hashlib
+import hmac
 import json
 import os
 import threading
@@ -57,6 +59,15 @@ def idempotency_get(key: str) -> dict[str, Any] | None:
 def idempotency_put(key: str, value: dict[str, Any]) -> None:
     with _IDEMPOTENCY_LOCK:
         _IDEMPOTENCY_CACHE[key] = copy.deepcopy(value)
+
+
+def compute_hmac_sha256(secret: str, message: str) -> str:
+    return hmac.new(secret.encode("utf-8"), message.encode("utf-8"), hashlib.sha256).hexdigest()
+
+
+def verify_hmac_sha256(secret: str, message: str, signature: str) -> bool:
+    expected = compute_hmac_sha256(secret, message)
+    return hmac.compare_digest(expected, signature.strip().lower())
 
 
 def corr(request: Request | None = None, job_id: str | None = None, run_id: str | None = None) -> dict[str, str]:

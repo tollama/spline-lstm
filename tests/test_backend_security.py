@@ -19,6 +19,7 @@ _BACKEND_MODULES = [
     "backend.app.routes.agent",
     "backend.app.routes.tollama",
     "backend.app.routes.runs",
+    "backend.app.routes.mobile",
 ]
 
 
