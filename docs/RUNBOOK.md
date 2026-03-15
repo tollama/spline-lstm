@@ -132,6 +132,7 @@ python3 -m src.preprocessing.smoke --run-id <RUN_ID>
   - `accuracy.wape`
   - `accuracy.per_horizon_rmse`
 - 실디바이스 ingest JSON도 동일한 `accuracy` block을 포함하는 것이 권장된다.
+- 예시 payload: `../examples/edge_device_result_android_high_end.json`
 - release gate는 device report의 `accuracy.rmse_degradation_pct`가 있으면 그것을 우선 사용하고, 없으면 offline metrics JSON으로 fallback 한다.
 
 ## 7) 최소 운영 점검 체크리스트

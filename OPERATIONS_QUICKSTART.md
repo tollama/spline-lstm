@@ -62,6 +62,7 @@ Benchmark reports now surface:
 - `accuracy.per_horizon_rmse`
 
 Preferred real-device JSON also includes an `accuracy` block. See `docs/EDGE_DEVICE_RESULT_SCHEMA.md`.
+You can start from `examples/edge_device_result_android_high_end.json`.
 
 ## Troubleshooting pointers
 

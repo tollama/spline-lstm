@@ -2,6 +2,10 @@
 
 Operator-facing schema for JSON files passed to `scripts/ingest_edge_device_bench.py`.
 
+Reference example:
+
+- `examples/edge_device_result_android_high_end.json`
+
 ## Purpose
 
 Each device JSON should describe one real runtime measurement for one exported model on one device profile.
@@ -102,4 +106,13 @@ If `accuracy.rmse_degradation_pct` is omitted but `rmse` and `baseline_rmse` are
 python3 scripts/benchmark_edge.py --run-id <run_id> --artifacts-dir artifacts
 python3 scripts/ingest_edge_device_bench.py --run-id <run_id> --artifacts-dir artifacts --device-result android_high_end=/tmp/android.json
 python3 scripts/edge_release_gate.py --run-id <run_id> --artifacts-dir artifacts --required-profiles android_high_end
+```
+
+Using the repo example directly:
+
+```bash
+python3 scripts/ingest_edge_device_bench.py \
+  --run-id <run_id> \
+  --artifacts-dir artifacts \
+  --device-result android_high_end=examples/edge_device_result_android_high_end.json
 ```

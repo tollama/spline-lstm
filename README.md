@@ -134,6 +134,9 @@ python3 scripts/ingest_edge_device_bench.py \
 #     "per_horizon_rmse": [0.81, 0.93, 1.05]
 #   }
 # }
+#
+# Copyable repo example:
+# examples/edge_device_result_android_high_end.json
 
 # Apply OTA release gate (blocks promotion on SLA miss)
 python3 scripts/edge_release_gate.py \
