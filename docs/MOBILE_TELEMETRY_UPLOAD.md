@@ -6,6 +6,10 @@ Contract for uploading Android/iOS benchmark payloads into the backend.
 
 `POST /api/v1/mobile/benchmarks:ingest`
 
+Batch variant:
+
+`POST /api/v1/mobile/benchmarks:ingest-batch`
+
 ## Request body
 
 ```json
@@ -63,7 +67,17 @@ Contract for uploading Android/iOS benchmark payloads into the backend.
 ```bash
 curl -X POST http://127.0.0.1:8000/api/v1/mobile/benchmarks:ingest \
   -H "Content-Type: application/json" \
+  -H "X-Idempotency-Key: mobile-upload-001" \
   -d @examples/mobile_upload_request_android.json
+```
+
+Batch example:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/mobile/benchmarks:ingest-batch \
+  -H "Content-Type: application/json" \
+  -H "X-Idempotency-Key: mobile-batch-001" \
+  -d @examples/mobile_upload_request_batch.json
 ```
 
 ## Native client references
@@ -81,3 +95,5 @@ These references show how to wrap the benchmark payload produced by:
 If validation fails, the endpoint returns `400` with a structured error payload under `error`.
 
 If auth is enabled in the backend, include `X-API-Token`.
+
+For retry-safe uploads from mobile queues, include `X-Idempotency-Key`. Repeated requests with the same key return the cached response.

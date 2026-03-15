@@ -72,3 +72,7 @@ class MobileBenchmarkIngestRequest(BaseModel):
     strict_runtime_policy: bool = False
     require_accuracy: bool = True
     require_metadata: bool = True
+
+
+class MobileBenchmarkBatchIngestRequest(BaseModel):
+    uploads: list[MobileBenchmarkIngestRequest] = Field(default_factory=list)
