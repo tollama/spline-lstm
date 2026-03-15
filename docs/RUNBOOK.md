@@ -31,6 +31,18 @@ RUN_ID=phase4-prod-001 EPOCHS=2 LOOKBACK=24 HORIZON=1 bash scripts/run_e2e.sh
 bash scripts/smoke_test.sh
 ```
 
+### C. Edge 환경 검증
+```bash
+# ingest/gate only node
+python3 scripts/validate_edge_environment.py --mode ops
+
+# ONNX benchmark node
+python3 scripts/validate_edge_environment.py --mode benchmark-onnx
+
+# full train/export node
+python3 scripts/validate_edge_environment.py --mode train-export
+```
+
 ## 3) 산출물 위치 (run_id 스코프)
 - 전처리: `artifacts/processed/{run_id}/processed.npz`
 - 전처리 메타: `artifacts/processed/{run_id}/meta.json`
@@ -138,6 +150,15 @@ python3 -m src.preprocessing.smoke --run-id <RUN_ID>
 - 템플릿 생성:
   - `../scripts/make_edge_device_result.py`
 - release gate는 device report의 `accuracy.rmse_degradation_pct`가 있으면 그것을 우선 사용하고, 없으면 offline metrics JSON으로 fallback 한다.
+
+## 7.2 Edge 설치 프로파일
+
+- `pip install -e .`
+  - 용도: `ingest_edge_device_bench.py`, `edge_release_gate.py`, sample edge make targets
+- `pip install -e ".[edge-runtime]"`
+  - 용도: 위 + ONNX benchmark/runtime validation
+- `pip install -e ".[preprocessing,train,edge-export]"`
+  - 용도: training, export, TFLite/ONNX export, full benchmark path
 
 ## 7) 최소 운영 점검 체크리스트
 - [ ] E2E 명령 1회 성공

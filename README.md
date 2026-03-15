@@ -45,8 +45,24 @@ cd spline-lstm
 python3 -m venv .venv
 source .venv/bin/activate
 
-# Install the package with backend and dev dependencies
-pip install -e ".[backend,dev]"
+# Full development install
+pip install -e ".[full,dev]"
+```
+
+Minimal edge-focused install paths:
+
+```bash
+# Edge ops only: device ingest + release gate
+pip install -e .
+
+# Edge benchmark with ONNX runtime
+pip install -e ".[edge-runtime]"
+
+# Full train/export node
+pip install -e ".[preprocessing,train,edge-export]"
+
+# Edge environment self-check
+python3 scripts/validate_edge_environment.py --mode ops
 ```
 
 ### Basic Usage

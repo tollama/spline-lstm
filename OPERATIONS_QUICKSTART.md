@@ -30,6 +30,24 @@ RUN_ID=ops-quick-001 EPOCHS=1 make smoke-gate
 python3 src/training/runner.py --synthetic --future-covariates temp,promo --cv-splits 3 --epochs 1
 ```
 
+## Edge install modes
+
+```bash
+# ingest/gate only
+pip install -e .
+
+# ingest/gate + ONNX benchmark
+pip install -e ".[edge-runtime]"
+
+# train/export node
+pip install -e ".[preprocessing,train,edge-export]"
+
+# validate current node capability
+python3 scripts/validate_edge_environment.py --mode ops
+python3 scripts/validate_edge_environment.py --mode benchmark-onnx
+python3 scripts/validate_edge_environment.py --mode train-export
+```
+
 ## Edge benchmark flow
 
 ```bash
