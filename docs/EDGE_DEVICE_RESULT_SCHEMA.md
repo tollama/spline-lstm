@@ -5,6 +5,7 @@ Operator-facing schema for JSON files passed to `scripts/ingest_edge_device_benc
 Reference example:
 
 - `examples/edge_device_result_android_high_end.json`
+- `examples/edge_device_result_ios_high_end.json`
 
 ## Purpose
 
@@ -115,4 +116,11 @@ python3 scripts/ingest_edge_device_bench.py \
   --run-id <run_id> \
   --artifacts-dir artifacts \
   --device-result android_high_end=examples/edge_device_result_android_high_end.json
+```
+
+```bash
+python3 scripts/ingest_edge_device_bench.py \
+  --run-id <run_id> \
+  --artifacts-dir artifacts \
+  --device-result ios_high_end=examples/edge_device_result_ios_high_end.json
 ```

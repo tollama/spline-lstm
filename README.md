@@ -137,6 +137,7 @@ python3 scripts/ingest_edge_device_bench.py \
 #
 # Copyable repo example:
 # examples/edge_device_result_android_high_end.json
+# examples/edge_device_result_ios_high_end.json
 
 # Apply OTA release gate (blocks promotion on SLA miss)
 python3 scripts/edge_release_gate.py \

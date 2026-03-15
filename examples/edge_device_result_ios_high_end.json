@@ -1,0 +1,23 @@
+{
+  "runtime_stack": "onnx",
+  "fallback_chain": ["onnx", "keras"],
+  "status": "succeeded",
+  "latency_ms": {
+    "p50": 21.1,
+    "p95": 29.8
+  },
+  "memory_peak_mb": 236.0,
+  "size_mb": 5.1,
+  "attempts": 200,
+  "failures": 0,
+  "accuracy": {
+    "rmse": 0.97,
+    "baseline_rmse": 1.02,
+    "rmse_degradation_pct": -4.9019607843,
+    "mae": 0.74,
+    "wape": 9.4,
+    "max_abs_diff": 1.56,
+    "n_samples": 64,
+    "per_horizon_rmse": [0.84, 0.95, 1.12]
+  }
+}
