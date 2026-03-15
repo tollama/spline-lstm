@@ -19,7 +19,7 @@ from src.covariates.spec import enforce_covariate_spec, load_covariate_spec
 from src.models.dlinear import DLinearLikeModel
 from src.models.lstm import BACKEND, AttentionLSTMModel, GRUModel, LSTMModel
 from src.models.tcn import TCNModel
-from src.training.baselines import Phase3BaselineComparisonError, build_baseline_report
+from src.training.baselines import Phase3BaselineComparisonError, build_baseline_report, naive_last_value_predict
 from src.training.edge import (
     build_ota_manifest,
     build_runtime_compatibility,
@@ -492,6 +492,40 @@ def _take_model_input_samples(X: Any, *, max_samples: int, from_tail: bool = Fal
     return _slice(X)
 
 
+def _write_edge_evaluation_bundle(
+    *,
+    artifacts_base: Path,
+    run_id: str,
+    X_test: Any,
+    y_test: np.ndarray,
+    max_samples: int,
+) -> tuple[Path, dict[str, Any]]:
+    sampled_inputs = _take_model_input_samples(X_test, max_samples=max_samples, from_tail=True)
+    materialized_inputs = _materialize_model_inputs(sampled_inputs)
+    y_true = np.asarray(_take_model_input_samples(y_test, max_samples=max_samples, from_tail=True), dtype=np.float32)
+    baseline_naive = naive_last_value_predict(materialized_inputs[0], horizon=int(y_true.shape[1]))
+
+    bundle_path = artifacts_base / "exports" / run_id / "edge_eval.npz"
+    bundle_path.parent.mkdir(parents=True, exist_ok=True)
+
+    payload: dict[str, Any] = {
+        "y_true": y_true,
+        "baseline_naive": np.asarray(baseline_naive, dtype=np.float32),
+        "n_inputs": np.asarray([len(materialized_inputs)], dtype=np.int32),
+    }
+    for idx, arr in enumerate(materialized_inputs):
+        payload[f"input_{idx}"] = np.asarray(arr, dtype=np.float32)
+    np.savez_compressed(bundle_path, **payload)
+
+    return bundle_path, {
+        "path": str(bundle_path),
+        "source": "test_tail",
+        "n_samples": int(y_true.shape[0]),
+        "baseline": "naive_last",
+        "input_count": int(len(materialized_inputs)),
+    }
+
+
 def _export_edge_artifacts(
     *,
     model_wrapper: Any,
@@ -514,6 +548,7 @@ def _export_edge_artifacts(
     parity_rmse_max: float,
     parity_enforce: bool,
     keras_model_path: str | None,
+    edge_evaluation: dict[str, Any] | None,
 ) -> tuple[dict[str, Any], dict[str, Any], Path, Path]:
     exports_root = artifacts_base / "exports" / run_id
     model_root = exports_root / model_type
@@ -635,6 +670,7 @@ def _export_edge_artifacts(
             "rmse": parity_rmse_max,
         },
         "parity": parity,
+        "edge_evaluation": edge_evaluation,
         "ota_manifest": ota_manifest,
     }
 
@@ -894,6 +930,13 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         max_samples=args.int8_calibration_samples,
         from_tail=False,
     )
+    edge_eval_path, edge_evaluation = _write_edge_evaluation_bundle(
+        artifacts_base=base,
+        run_id=run_id,
+        X_test=X_test,
+        y_test=y_test,
+        max_samples=args.edge_eval_samples,
+    )
     y_true_last = y_test[-1]
     y_pred_last = y_pred[-1]
     _write_predictions_csv(predictions_path, run_id=run_id, y_pred_last=y_pred_last)
@@ -919,6 +962,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         parity_rmse_max=args.parity_rmse_max,
         parity_enforce=args.parity_enforce,
         keras_model_path=str(best_ckpt_h5),
+        edge_evaluation=edge_evaluation,
     )
 
     if "evaluation_context" not in baselines_obj:
@@ -961,6 +1005,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "edge_sla": args.edge_sla,
         "quantization": args.quantization,
         "int8_calibration_samples": args.int8_calibration_samples,
+        "edge_eval_samples": args.edge_eval_samples,
         "parity_max_abs_diff": args.parity_max_abs_diff,
         "parity_rmse_max": args.parity_rmse_max,
         "parity_enforce": args.parity_enforce,
@@ -968,6 +1013,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "semantic_version": args.semantic_version,
         "min_app_version": args.min_app_version,
         "ota_model_id": args.ota_model_id,
+        "edge_eval_path": str(edge_eval_path),
         "export_manifest_path": str(export_manifest_path),
         "ota_manifest_path": str(ota_manifest_path),
     }
@@ -1029,6 +1075,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "runtime_stack": export_manifest.get("runtime_stack"),
             "fallback_chain": export_manifest.get("fallback_chain"),
             "formats": export_manifest.get("exports"),
+            "edge_evaluation": export_manifest.get("edge_evaluation"),
             "parity_policy": export_manifest.get("parity_policy"),
             "parity": export_manifest.get("parity"),
         },
@@ -1069,6 +1116,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
 - edge_sla: {args.edge_sla}
 - quantization: {args.quantization}
 - int8_calibration_samples: {args.int8_calibration_samples}
+- edge_eval_samples: {args.edge_eval_samples}
 - parity_max_abs_diff: {args.parity_max_abs_diff}
 - parity_rmse_max: {args.parity_rmse_max}
 - parity_enforce: {args.parity_enforce}
@@ -1107,6 +1155,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
 - report: `{report_path}`
 - export manifest: `{export_manifest_path}`
 - OTA manifest: `{ota_manifest_path}`
+- edge evaluation bundle: `{edge_eval_path}`
 """
     _write_report(report_path, report)
 
@@ -1205,6 +1254,12 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         default=64,
         help="Maximum number of representative samples used for int8 calibration",
+    )
+    p.add_argument(
+        "--edge-eval-samples",
+        type=int,
+        default=64,
+        help="Maximum number of real test windows stored for edge accuracy benchmarking",
     )
     p.add_argument(
         "--parity-max-abs-diff",

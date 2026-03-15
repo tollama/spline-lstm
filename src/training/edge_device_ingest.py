@@ -140,6 +140,33 @@ def _extract_accuracy_metrics(metrics_payload: dict[str, Any] | None) -> tuple[f
     return model_rmse, baseline_rmse
 
 
+def _extract_device_accuracy(raw_payload: dict[str, Any]) -> dict[str, Any] | None:
+    accuracy = raw_payload.get("accuracy")
+    if isinstance(accuracy, dict):
+        out = dict(accuracy)
+    else:
+        model_rmse = _safe_float(raw_payload.get("model_rmse", raw_payload.get("rmse")))
+        baseline_rmse = _safe_float(raw_payload.get("baseline_rmse"))
+        if model_rmse is None and baseline_rmse is None:
+            return None
+        out = {
+            "rmse": model_rmse,
+            "baseline_rmse": baseline_rmse,
+        }
+
+    model_rmse = _safe_float(out.get("rmse"))
+    baseline_rmse = _safe_float(out.get("baseline_rmse"))
+    degradation_pct = _safe_float(out.get("rmse_degradation_pct"))
+    if degradation_pct is None and model_rmse is not None and baseline_rmse is not None and baseline_rmse > 0:
+        degradation_pct = float((model_rmse - baseline_rmse) / baseline_rmse * 100.0)
+
+    normalized = dict(out)
+    normalized["rmse"] = model_rmse
+    normalized["baseline_rmse"] = baseline_rmse
+    normalized["rmse_degradation_pct"] = degradation_pct
+    return normalized
+
+
 def _score_record(
     *,
     model_rmse: float | None,
@@ -179,6 +206,13 @@ def _score_record(
         "size_score": size_score,
         "stability_score": stability_score,
         "edge_score": edge_score,
+        "model_rmse": model_rmse,
+        "baseline_rmse": baseline_rmse,
+        "rmse_degradation_pct": (
+            float((model_rmse - baseline_rmse) / baseline_rmse * 100.0)
+            if model_rmse is not None and baseline_rmse is not None and baseline_rmse > 0
+            else None
+        ),
     }
 
 
@@ -202,7 +236,12 @@ def _build_device_record(
     runtime_stack = _extract_runtime(raw_payload)
     status = _extract_status(raw_payload, attempts=attempts, failures=failures)
 
-    model_rmse, baseline_rmse = _extract_accuracy_metrics(metrics_payload)
+    raw_accuracy = _extract_device_accuracy(raw_payload)
+    if raw_accuracy is not None:
+        model_rmse = _safe_float(raw_accuracy.get("rmse"))
+        baseline_rmse = _safe_float(raw_accuracy.get("baseline_rmse"))
+    else:
+        model_rmse, baseline_rmse = _extract_accuracy_metrics(metrics_payload)
     score = _score_record(
         model_rmse=model_rmse,
         baseline_rmse=baseline_rmse,
@@ -238,6 +277,7 @@ def _build_device_record(
             "kind": "device_ingest",
             "path": str(source_path),
         },
+        "accuracy": raw_accuracy,
         **score,
     }
 

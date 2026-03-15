@@ -54,6 +54,51 @@ def _dummy_inputs_from_specs(input_specs: list[dict[str, Any]]) -> list[np.ndarr
     return out
 
 
+def _load_edge_evaluation_bundle(manifest: dict[str, Any]) -> dict[str, Any] | None:
+    meta = manifest.get("edge_evaluation")
+    if not isinstance(meta, dict):
+        return None
+
+    path_raw = meta.get("path")
+    if not isinstance(path_raw, str) or not path_raw:
+        return None
+
+    path = Path(path_raw)
+    if not path.exists():
+        logger.warning("edge evaluation bundle missing: %s", path)
+        return None
+
+    with np.load(path) as payload:
+        input_keys = sorted(
+            [key for key in payload.files if key.startswith("input_")],
+            key=lambda key: int(key.split("_", 1)[1]),
+        )
+        if not input_keys or "y_true" not in payload.files:
+            logger.warning("edge evaluation bundle incomplete: %s", path)
+            return None
+
+        inputs = [np.asarray(payload[key], dtype=np.float32) for key in input_keys]
+        y_true = np.asarray(payload["y_true"], dtype=np.float32)
+        baseline_naive = (
+            np.asarray(payload["baseline_naive"], dtype=np.float32)
+            if "baseline_naive" in payload.files
+            else None
+        )
+
+    return {
+        "path": str(path),
+        "source": meta.get("source"),
+        "n_samples": int(y_true.shape[0]),
+        "inputs": inputs,
+        "y_true": y_true,
+        "baseline_naive": baseline_naive,
+    }
+
+
+def _take_first_batch(inputs: list[np.ndarray]) -> list[np.ndarray]:
+    return [np.asarray(arr[:1], dtype=np.float32) for arr in inputs]
+
+
 def _latency_stats(samples_ms: list[float]) -> tuple[float, float]:
     arr = np.asarray(samples_ms, dtype=np.float64)
     return float(np.percentile(arr, 50)), float(np.percentile(arr, 95))
@@ -127,6 +172,44 @@ def _size_mb(path: Path) -> float:
     return float(path.stat().st_size) / (1024.0 * 1024.0)
 
 
+def _rmse(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+    return float(np.sqrt(np.mean((y_true - y_pred) ** 2)))
+
+
+def _evaluate_accuracy(
+    *,
+    runtime: str,
+    model_path: Path,
+    eval_inputs: list[np.ndarray],
+    y_true: np.ndarray,
+    baseline_naive: np.ndarray | None,
+) -> dict[str, Any]:
+    pred = np.asarray(_runtime_infer(runtime, model_path, eval_inputs), dtype=np.float32).reshape(y_true.shape)
+    err = pred - y_true
+    abs_err = np.abs(err)
+    denom = float(np.sum(np.abs(y_true)))
+    per_horizon_rmse = np.sqrt(np.mean(err**2, axis=0)).reshape(-1)
+
+    metrics: dict[str, Any] = {
+        "rmse": _rmse(y_true, pred),
+        "mae": float(np.mean(abs_err)),
+        "wape": float(np.sum(abs_err) / denom * 100.0) if denom > 1e-8 else float("inf"),
+        "max_abs_diff": float(np.max(abs_err)),
+        "n_samples": int(y_true.shape[0]),
+        "per_horizon_rmse": [float(x) for x in per_horizon_rmse.tolist()],
+    }
+
+    if baseline_naive is not None:
+        baseline = np.asarray(baseline_naive, dtype=np.float32).reshape(y_true.shape)
+        baseline_rmse = _rmse(y_true, baseline)
+        metrics["baseline_rmse"] = baseline_rmse
+        metrics["rmse_degradation_pct"] = (
+            float((metrics["rmse"] - baseline_rmse) / baseline_rmse * 100.0) if baseline_rmse > 0 else None
+        )
+
+    return metrics
+
+
 def _score_device(
     *,
     metrics_payload: dict[str, Any] | None,
@@ -137,7 +220,14 @@ def _score_device(
 ) -> dict[str, Any]:
     model_rmse = None
     baseline_rmse = None
-    if metrics_payload:
+    accuracy_source = "offline_metrics"
+    device_accuracy = bench.get("accuracy")
+    if isinstance(device_accuracy, dict) and device_accuracy.get("rmse") is not None:
+        model_rmse = float(device_accuracy["rmse"])
+        baseline_val = device_accuracy.get("baseline_rmse")
+        baseline_rmse = float(baseline_val) if baseline_val is not None else None
+        accuracy_source = "edge_evaluation"
+    elif metrics_payload:
         model_rmse = float(metrics_payload.get("metrics", {}).get("rmse"))
         baseline_rmse = float(metrics_payload.get("baselines", {}).get("naive_last", {}).get("rmse"))
 
@@ -165,6 +255,14 @@ def _score_device(
         "size_score": siz,
         "stability_score": st,
         "edge_score": edge_score,
+        "accuracy_source": accuracy_source,
+        "model_rmse": model_rmse,
+        "baseline_rmse": baseline_rmse,
+        "rmse_degradation_pct": (
+            float((model_rmse - baseline_rmse) / baseline_rmse * 100.0)
+            if model_rmse is not None and baseline_rmse is not None and baseline_rmse > 0
+            else None
+        ),
     }
 
 
@@ -188,7 +286,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
 
     runtime_compat = manifest.get("runtime_compatibility", {})
     input_specs = manifest.get("input_specs", [])
-    sample_inputs = _dummy_inputs_from_specs(input_specs)
+    evaluation_bundle = _load_edge_evaluation_bundle(manifest)
+    sample_inputs = evaluation_bundle["inputs"] if evaluation_bundle is not None else _dummy_inputs_from_specs(input_specs)
+    latency_inputs = _take_first_batch(sample_inputs)
 
     results: list[dict[str, Any]] = []
     for device_name in selected_devices:
@@ -228,10 +328,30 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             bench = _benchmark_runtime(
                 runtime=runtime_stack,
                 model_path=model_path,
-                sample_inputs=sample_inputs,
+                sample_inputs=latency_inputs,
                 warmup=args.warmup,
                 iterations=args.iterations,
             )
+            accuracy: dict[str, Any] | None = None
+            if evaluation_bundle is not None:
+                try:
+                    accuracy = _evaluate_accuracy(
+                        runtime=runtime_stack,
+                        model_path=model_path,
+                        eval_inputs=evaluation_bundle["inputs"],
+                        y_true=np.asarray(evaluation_bundle["y_true"], dtype=np.float32),
+                        baseline_naive=(
+                            None
+                            if evaluation_bundle.get("baseline_naive") is None
+                            else np.asarray(evaluation_bundle["baseline_naive"], dtype=np.float32)
+                        ),
+                    )
+                except Exception as exc:
+                    accuracy = {
+                        "error": str(exc),
+                        "n_samples": int(evaluation_bundle.get("n_samples", 0)),
+                    }
+            bench["accuracy"] = accuracy
             size_mb = _size_mb(model_path) if model_path.exists() else None
             score = _score_device(
                 metrics_payload=metrics_payload,
@@ -249,6 +369,13 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                     "size_mb": size_mb,
                     "failures": bench.get("failures", 0),
                     "attempts": bench.get("attempts", 0),
+                    "accuracy": accuracy,
+                    "edge_evaluation": {
+                        "mode": "real_holdout" if evaluation_bundle is not None else "synthetic_dummy_inputs",
+                        "path": evaluation_bundle.get("path") if evaluation_bundle is not None else None,
+                        "n_samples": evaluation_bundle.get("n_samples") if evaluation_bundle is not None else 0,
+                        "source": evaluation_bundle.get("source") if evaluation_bundle is not None else None,
+                    },
                     **score,
                 }
             )

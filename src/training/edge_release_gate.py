@@ -66,6 +66,22 @@ def _accuracy_degradation_pct(metrics: dict[str, Any] | None) -> float | None:
     return float((model_rmse - baseline_rmse) / baseline_rmse * 100.0)
 
 
+def _record_accuracy_metrics(record: dict[str, Any] | None) -> tuple[float | None, float | None, float | None]:
+    if not isinstance(record, dict):
+        return None, None, None
+
+    accuracy = record.get("accuracy")
+    if not isinstance(accuracy, dict):
+        return None, None, None
+
+    model_rmse = _safe_float(accuracy.get("rmse"))
+    baseline_rmse = _safe_float(accuracy.get("baseline_rmse"))
+    degradation_pct = _safe_float(accuracy.get("rmse_degradation_pct"))
+    if degradation_pct is None and model_rmse is not None and baseline_rmse is not None and baseline_rmse > 0:
+        degradation_pct = float((model_rmse - baseline_rmse) / baseline_rmse * 100.0)
+    return model_rmse, baseline_rmse, degradation_pct
+
+
 def _evaluate_profile(
     *,
     profile_name: str,
@@ -131,11 +147,13 @@ def _evaluate_profile(
     if failures > args.max_failures:
         blockers.append(f"failures={failures} exceeds allowed {args.max_failures}")
 
-    if degradation_pct is None:
+    device_model_rmse, device_baseline_rmse, device_degradation_pct = _record_accuracy_metrics(record)
+    effective_degradation_pct = device_degradation_pct if device_degradation_pct is not None else degradation_pct
+    if effective_degradation_pct is None:
         blockers.append("missing RMSE baseline comparison for accuracy gate")
-    elif degradation_pct > args.max_accuracy_degradation_pct:
+    elif effective_degradation_pct > args.max_accuracy_degradation_pct:
         blockers.append(
-            f"rmse_degradation_pct={degradation_pct:.3f} exceeds limit {args.max_accuracy_degradation_pct:.3f}"
+            f"rmse_degradation_pct={effective_degradation_pct:.3f} exceeds limit {args.max_accuracy_degradation_pct:.3f}"
         )
 
     edge_score = _safe_float(record.get("edge_score"))
@@ -158,7 +176,9 @@ def _evaluate_profile(
             "attempts": attempts,
             "failures": failures,
             "edge_score": edge_score,
-            "rmse_degradation_pct": degradation_pct,
+            "rmse_degradation_pct": effective_degradation_pct,
+            "model_rmse": device_model_rmse,
+            "baseline_rmse": device_baseline_rmse,
         },
         "limits": {
             "max_latency_p95_ms": latency_limit,

@@ -196,3 +196,48 @@ def test_edge_release_gate_inline_ingests_device_results(tmp_path: Path) -> None
     assert out["promotion_allowed"] is True
     assert (artifacts / "edge_bench" / run_id / "android_high_end.json").exists()
     assert (artifacts / "edge_bench" / run_id / "leaderboard.json").exists()
+
+
+def test_edge_release_gate_prefers_device_side_accuracy_over_offline_metrics(tmp_path: Path) -> None:
+    run_id = "gate-device-accuracy-001"
+    artifacts = tmp_path / "artifacts"
+
+    _write_json(
+        artifacts / "edge_bench" / run_id / "leaderboard.json",
+        {
+            "run_id": run_id,
+            "results": [
+                {
+                    "device_profile": "desktop_reference",
+                    "status": "succeeded",
+                    "runtime_stack": "tflite",
+                    "latency_p95_ms": 12.0,
+                    "size_mb": 3.2,
+                    "ram_peak_mb": 200.0,
+                    "attempts": 1000,
+                    "failures": 0,
+                    "edge_score": 95.0,
+                    "profile": {
+                        "latency_p95_target_ms": 50.0,
+                        "memory_budget_mb": 1024.0,
+                    },
+                    "accuracy": {
+                        "rmse": 0.98,
+                        "baseline_rmse": 1.00,
+                        "rmse_degradation_pct": -2.0,
+                    },
+                }
+            ],
+        },
+    )
+    _write_json(
+        artifacts / "metrics" / f"{run_id}.json",
+        {
+            "metrics": {"rmse": 1.08},
+            "baselines": {"naive_last": {"rmse": 1.00}},
+        },
+    )
+
+    out = run(_build_gate_args(run_id=run_id, artifacts=artifacts))
+    assert out["promotion_allowed"] is True
+    assert out["checks"][0]["metrics"]["rmse_degradation_pct"] == -2.0

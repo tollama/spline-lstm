@@ -152,3 +152,39 @@ def test_device_ingest_requires_latency_p95(tmp_path: Path) -> None:
     )
     with pytest.raises(ValueError, match="latency_p95_ms is required"):
         run(args)
+
+
+def test_device_ingest_preserves_device_side_accuracy_metrics(tmp_path: Path) -> None:
+    run_id = "device-ingest-accuracy-001"
+    artifacts = tmp_path / "artifacts"
+    source = tmp_path / "android_accuracy.json"
+    _write_json(
+        source,
+        {
+            "runtime": "tflite",
+            "latency_ms": {"p50": 18.0, "p95": 24.0},
+            "memory_peak_mb": 200.0,
+            "size_mb": 4.0,
+            "attempts": 1000,
+            "failures": 0,
+            "accuracy": {
+                "rmse": 0.95,
+                "baseline_rmse": 1.00,
+            },
+        },
+    )
+
+    out = run(
+        _build_args(
+            run_id=run_id,
+            artifacts_dir=artifacts,
+            device_result=[f"android_high_end={source}"],
+        )
+    )
+
+    record = out["results"][0]
+    assert record["accuracy"]["rmse"] == 0.95
+    assert record["accuracy"]["baseline_rmse"] == 1.0
+    assert record["accuracy"]["rmse_degradation_pct"] == pytest.approx(-5.0)
+    assert record["model_rmse"] == 0.95
+    assert record["baseline_rmse"] == 1.0
