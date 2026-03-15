@@ -82,6 +82,9 @@ make edge-make-device-result \
 
 # 3c) one-command sample generate + ingest path
 RUN_ID=edge-ops-sample-001 make edge-ingest-example
+
+# 3d) one-command sample generate + ingest + release-gate path
+RUN_ID=edge-ops-release-001 make edge-release-example
 ```
 
 Benchmark reports now surface:

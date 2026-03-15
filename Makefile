@@ -1,4 +1,4 @@
-.PHONY: help lint format type-check ci-gate quick-gate smoke-gate edge-make-device-result edge-ingest-example edge-ingest-device edge-release-gate edge-selection-lane full-regression pre-release-verify
+.PHONY: help lint format type-check ci-gate quick-gate smoke-gate edge-make-device-result edge-ingest-example edge-release-example edge-ingest-device edge-release-gate edge-selection-lane full-regression pre-release-verify
 
 help:
 	@echo "Common operator flows"
@@ -10,6 +10,7 @@ help:
 	@echo "  make smoke-gate         # smoke gate only"
 	@echo "  make edge-make-device-result # generate a real-device benchmark JSON payload"
 	@echo "  make edge-ingest-example # generate + ingest one sample device benchmark payload for RUN_ID"
+	@echo "  make edge-release-example # generate + ingest + release-gate one sample device payload for RUN_ID"
 	@echo "  make edge-ingest-device # ingest real-device benchmark JSON into edge_bench"
 	@echo "  make edge-release-gate  # OTA promotion gate from edge benchmark results"
 	@echo "  make edge-selection-lane # run candidate lane and auto-select champion/fallback (BENCHMARK/GATE/SCORE/TEACHER options optional)"
@@ -92,6 +93,12 @@ edge-ingest-example:
 	eval "python3 scripts/make_edge_device_result.py --output $$DEVICE_JSON $$EXTRA_ARGS"; \
 	echo "[edge-ingest-example] ingesting $$DEVICE_PROFILE=$$DEVICE_JSON into RUN_ID=$$RUN_ID"; \
 	python3 scripts/ingest_edge_device_bench.py --run-id "$$RUN_ID" --artifacts-dir "$${ARTIFACTS_DIR:-artifacts}" --device-result "$$DEVICE_PROFILE=$$DEVICE_JSON"
+
+edge-release-example:
+	@RUN_ID="$${RUN_ID:?RUN_ID is required (e.g. make edge-release-example RUN_ID=edge-demo-001)}"; \
+	$(MAKE) edge-ingest-example RUN_ID="$$RUN_ID" ARTIFACTS_DIR="$${ARTIFACTS_DIR:-artifacts}" DEVICE_PROFILE="$${DEVICE_PROFILE:-android_high_end}" DEVICE_JSON="$${DEVICE_JSON:-/tmp/$$RUN_ID-$${DEVICE_PROFILE:-android_high_end}-device.json}" FROM_REPORT_JSON="$${FROM_REPORT_JSON:-}" RUNTIME_STACK="$${RUNTIME_STACK:-}" FALLBACK_CHAIN="$${FALLBACK_CHAIN:-}" STATUS="$${STATUS:-}" LATENCY_P50_MS="$${LATENCY_P50_MS:-}" LATENCY_P95_MS="$${LATENCY_P95_MS:-}" MEMORY_PEAK_MB="$${MEMORY_PEAK_MB:-}" SIZE_MB="$${SIZE_MB:-}" ATTEMPTS="$${ATTEMPTS:-1000}" FAILURES="$${FAILURES:-}" ACCURACY_RMSE="$${ACCURACY_RMSE:-}" ACCURACY_BASELINE_RMSE="$${ACCURACY_BASELINE_RMSE:-}" ACCURACY_RMSE_DEGRADATION_PCT="$${ACCURACY_RMSE_DEGRADATION_PCT:-}" ACCURACY_MAE="$${ACCURACY_MAE:-}" ACCURACY_WAPE="$${ACCURACY_WAPE:-}" ACCURACY_MAX_ABS_DIFF="$${ACCURACY_MAX_ABS_DIFF:-}" ACCURACY_N_SAMPLES="$${ACCURACY_N_SAMPLES:-}" PER_HORIZON_RMSE="$${PER_HORIZON_RMSE:-}"; \
+	echo "[edge-release-example] applying release gate for RUN_ID=$$RUN_ID"; \
+	python3 scripts/edge_release_gate.py --run-id "$$RUN_ID" --artifacts-dir "$${ARTIFACTS_DIR:-artifacts}" --required-profiles "$${REQUIRED_PROFILES:-$${DEVICE_PROFILE:-android_high_end}}"
 
 edge-ingest-device:
 	@RUN_ID="$${RUN_ID:?RUN_ID is required (e.g. make edge-ingest-device RUN_ID=...)}"; \
