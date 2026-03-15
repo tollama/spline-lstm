@@ -10,6 +10,7 @@ Related docs:
 - [MOBILE_CHECKSUM_VERIFICATION.md](/Users/yongchoelchoi/Documents/TollamaAI-Github/spline-lstm/docs/MOBILE_CHECKSUM_VERIFICATION.md)
 - [MOBILE_RELEASE_CHECKLIST.md](/Users/yongchoelchoi/Documents/TollamaAI-Github/spline-lstm/docs/MOBILE_RELEASE_CHECKLIST.md)
 - [MOBILE_TELEMETRY_UPLOAD.md](/Users/yongchoelchoi/Documents/TollamaAI-Github/spline-lstm/docs/MOBILE_TELEMETRY_UPLOAD.md)
+- [MOBILE_UPLOAD_QUEUE.md](/Users/yongchoelchoi/Documents/TollamaAI-Github/spline-lstm/docs/MOBILE_UPLOAD_QUEUE.md)
 
 ## 1. Deployment flow
 
@@ -21,6 +22,7 @@ Related docs:
 6. Run [scripts/edge_release_gate.py](/Users/yongchoelchoi/Documents/TollamaAI-Github/spline-lstm/scripts/edge_release_gate.py) for promotion.
 
 Instead of shelling out to ingest manually, apps can upload directly to the backend endpoint documented in [MOBILE_TELEMETRY_UPLOAD.md](/Users/yongchoelchoi/Documents/TollamaAI-Github/spline-lstm/docs/MOBILE_TELEMETRY_UPLOAD.md).
+If the app can be offline or backgrounded during upload, use the queue/replay references in [MOBILE_UPLOAD_QUEUE.md](/Users/yongchoelchoi/Documents/TollamaAI-Github/spline-lstm/docs/MOBILE_UPLOAD_QUEUE.md).
 
 ## 2. Runtime policy
 

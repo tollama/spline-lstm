@@ -12,6 +12,38 @@ export type DashboardSummary = {
   lastRmse: number;
   recentJobs: Array<{ runId: string; status: string; startedAt: string; model: string }>;
   rmseHistory?: Array<{ label: string; value: number }>;
+  mobileBenchmarks?: DashboardMobileBenchmarks;
+};
+
+export type DashboardMobileBenchmarks = {
+  totalReceipts: number;
+  successfulReceipts: number;
+  failedReceipts: number;
+  successRate: number | null;
+  uniqueRuns: number;
+  latestReceivedAt: string | null;
+  statusCounts: Record<string, number>;
+  platformCounts: Record<string, number>;
+  runtimeStackCounts: Record<string, number>;
+  deviceProfileCounts: Record<string, number>;
+  averages: {
+    latencyP95Ms: number | null;
+    memoryPeakMb: number | null;
+    sizeMb: number | null;
+    rmse: number | null;
+    baselineRmse: number | null;
+  };
+  recentUploads: Array<{
+    receiptId: string;
+    receivedAt: string;
+    runId: string;
+    deviceProfile: string;
+    status: string;
+    platform: string;
+    runtimeStack: string;
+    latencyP95Ms: number | null;
+    rmse: number | null;
+  }>;
 };
 
 export type ResultMetrics = {
@@ -164,6 +196,15 @@ function parseCsv(raw: string | undefined): string[] {
     .split(",")
     .map((item) => item.trim())
     .filter((item) => item.length > 0);
+}
+
+function normalizeNumberMap(value: unknown): Record<string, number> {
+  if (!isPlainObject(value)) return {};
+  return Object.entries(value).reduce<Record<string, number>>((acc, [key, raw]) => {
+    const parsed = toNumber(raw);
+    if (parsed !== null) acc[key] = parsed;
+    return acc;
+  }, {});
 }
 
 function unwrapEnvelope<T>(body: unknown): T {
@@ -638,6 +679,49 @@ function buildMockDashboard(): DashboardSummary {
       { label: "t-1", value: 0.1429 },
       { label: "now", value: 0.1234 },
     ],
+    mobileBenchmarks: {
+      totalReceipts: 8,
+      successfulReceipts: 7,
+      failedReceipts: 1,
+      successRate: 0.875,
+      uniqueRuns: 3,
+      latestReceivedAt: "2026-02-18T19:41:00Z",
+      statusCounts: { succeeded: 7, validation_failed: 1 },
+      platformCounts: { android: 5, ios: 2 },
+      runtimeStackCounts: { tflite: 4, onnx: 3 },
+      deviceProfileCounts: { android_high_end: 4, ios_high_end: 2, android_mid: 2 },
+      averages: {
+        latencyP95Ms: 22.4,
+        memoryPeakMb: 198.3,
+        sizeMb: 4.6,
+        rmse: 0.934,
+        baselineRmse: 1.012,
+      },
+      recentUploads: [
+        {
+          receiptId: "mobile-receipt-a1",
+          receivedAt: "2026-02-18T19:41:00Z",
+          runId: "local-quick-20260218-191832",
+          deviceProfile: "android_high_end",
+          status: "succeeded",
+          platform: "android",
+          runtimeStack: "tflite",
+          latencyP95Ms: 20.8,
+          rmse: 0.91,
+        },
+        {
+          receiptId: "mobile-receipt-a2",
+          receivedAt: "2026-02-18T19:39:00Z",
+          runId: "local-e2e-20260218-192200",
+          deviceProfile: "ios_high_end",
+          status: "succeeded",
+          platform: "ios",
+          runtimeStack: "onnx",
+          latencyP95Ms: 23.6,
+          rmse: 0.95,
+        },
+      ],
+    },
   };
 }
 
@@ -765,7 +849,92 @@ function normalizeDashboardSummary(payload: unknown): DashboardSummary {
     })
     .filter((item): item is { label: string; value: number } => !!item);
 
-  return { serviceStatus, lastRunId, lastRmse, recentJobs, rmseHistory };
+  const rawMobileBenchmarks = isPlainObject(payload.mobileBenchmarks)
+    ? payload.mobileBenchmarks
+    : isPlainObject(payload.mobile_benchmarks)
+      ? payload.mobile_benchmarks
+      : null;
+
+  const rawMobileAverages = isPlainObject(rawMobileBenchmarks?.averages) ? rawMobileBenchmarks.averages : undefined;
+  const rawRecentUploads = Array.isArray(rawMobileBenchmarks?.recentUploads ?? rawMobileBenchmarks?.recent_uploads)
+    ? ((rawMobileBenchmarks?.recentUploads ?? rawMobileBenchmarks?.recent_uploads) as unknown[])
+    : [];
+
+  const mobileBenchmarks = rawMobileBenchmarks
+    ? {
+        totalReceipts: toNumber(rawMobileBenchmarks.totalReceipts ?? rawMobileBenchmarks.total_receipts) ?? 0,
+        successfulReceipts:
+          toNumber(rawMobileBenchmarks.successfulReceipts ?? rawMobileBenchmarks.successful_receipts) ?? 0,
+        failedReceipts: toNumber(rawMobileBenchmarks.failedReceipts ?? rawMobileBenchmarks.failed_receipts) ?? 0,
+        successRate: toNumber(rawMobileBenchmarks.successRate ?? rawMobileBenchmarks.success_rate),
+        uniqueRuns: toNumber(rawMobileBenchmarks.uniqueRuns ?? rawMobileBenchmarks.unique_runs) ?? 0,
+        latestReceivedAt:
+          typeof rawMobileBenchmarks.latestReceivedAt === "string"
+            ? rawMobileBenchmarks.latestReceivedAt
+            : typeof rawMobileBenchmarks.latest_received_at === "string"
+              ? rawMobileBenchmarks.latest_received_at
+              : null,
+        statusCounts: normalizeNumberMap(rawMobileBenchmarks.statusCounts ?? rawMobileBenchmarks.status_counts),
+        platformCounts: normalizeNumberMap(rawMobileBenchmarks.platformCounts ?? rawMobileBenchmarks.platform_counts),
+        runtimeStackCounts: normalizeNumberMap(
+          rawMobileBenchmarks.runtimeStackCounts ?? rawMobileBenchmarks.runtime_stack_counts,
+        ),
+        deviceProfileCounts: normalizeNumberMap(
+          rawMobileBenchmarks.deviceProfileCounts ?? rawMobileBenchmarks.device_profile_counts,
+        ),
+        averages: {
+          latencyP95Ms: toNumber(
+            rawMobileAverages?.latencyP95Ms ?? rawMobileAverages?.latency_p95_ms,
+          ),
+          memoryPeakMb: toNumber(
+            rawMobileAverages?.memoryPeakMb ?? rawMobileAverages?.memory_peak_mb,
+          ),
+          sizeMb: toNumber(rawMobileAverages?.sizeMb ?? rawMobileAverages?.size_mb),
+          rmse: toNumber(rawMobileAverages?.rmse),
+          baselineRmse: toNumber(
+            rawMobileAverages?.baselineRmse ?? rawMobileAverages?.baseline_rmse,
+          ),
+        },
+        recentUploads: rawRecentUploads.filter(isPlainObject).map((item) => ({
+          receiptId:
+            typeof item.receiptId === "string"
+              ? item.receiptId
+              : typeof item.receipt_id === "string"
+                ? item.receipt_id
+                : "-",
+          receivedAt:
+            typeof item.receivedAt === "string"
+              ? item.receivedAt
+              : typeof item.received_at === "string"
+                ? item.received_at
+                : "-",
+          runId:
+            typeof item.runId === "string"
+              ? item.runId
+              : typeof item.run_id === "string"
+                ? item.run_id
+                : "-",
+          deviceProfile:
+            typeof item.deviceProfile === "string"
+              ? item.deviceProfile
+              : typeof item.device_profile === "string"
+                ? item.device_profile
+                : "-",
+          status: typeof item.status === "string" ? item.status : "unknown",
+          platform: typeof item.platform === "string" ? item.platform : "-",
+          runtimeStack:
+            typeof item.runtimeStack === "string"
+              ? item.runtimeStack
+              : typeof item.runtime_stack === "string"
+                ? item.runtime_stack
+                : "-",
+          latencyP95Ms: toNumber(item.latencyP95Ms ?? item.latency_p95_ms),
+          rmse: toNumber(item.rmse),
+        })),
+      }
+    : undefined;
+
+  return { serviceStatus, lastRunId, lastRmse, recentJobs, rmseHistory, mobileBenchmarks };
 }
 
 export function isMockMode(): boolean {

@@ -100,6 +100,14 @@ These references show how to wrap the benchmark payload produced by:
 - [MobileBenchmarkEmitter.kt](/Users/yongchoelchoi/Documents/TollamaAI-Github/spline-lstm/examples/mobile/android/MobileBenchmarkEmitter.kt)
 - [MobileBenchmarkEmitter.swift](/Users/yongchoelchoi/Documents/TollamaAI-Github/spline-lstm/examples/mobile/ios/MobileBenchmarkEmitter.swift)
 
+For offline-safe delivery and replay:
+
+- [MOBILE_UPLOAD_QUEUE.md](/Users/yongchoelchoi/Documents/TollamaAI-Github/spline-lstm/docs/MOBILE_UPLOAD_QUEUE.md)
+- [MobileBenchmarkQueueStore.kt](/Users/yongchoelchoi/Documents/TollamaAI-Github/spline-lstm/examples/mobile/android/MobileBenchmarkQueueStore.kt)
+- [MobileBenchmarkReplayWorker.kt](/Users/yongchoelchoi/Documents/TollamaAI-Github/spline-lstm/examples/mobile/android/MobileBenchmarkReplayWorker.kt)
+- [MobileBenchmarkQueueStore.swift](/Users/yongchoelchoi/Documents/TollamaAI-Github/spline-lstm/examples/mobile/ios/MobileBenchmarkQueueStore.swift)
+- [MobileBenchmarkReplayWorker.swift](/Users/yongchoelchoi/Documents/TollamaAI-Github/spline-lstm/examples/mobile/ios/MobileBenchmarkReplayWorker.swift)
+
 ## Failure behavior
 
 If validation fails, the endpoint returns `400` with a structured error payload under `error`.

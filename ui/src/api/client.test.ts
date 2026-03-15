@@ -285,6 +285,38 @@ describe("api client integration adapters", () => {
             recent_jobs: [
               { run_id: "run-100", status: "success", started_at: "2026-02-20", model_type: "gru" },
             ],
+            mobile_benchmarks: {
+              total_receipts: 3,
+              successful_receipts: 2,
+              failed_receipts: 1,
+              success_rate: 0.6667,
+              unique_runs: 2,
+              latest_received_at: "2026-02-20T10:00:00Z",
+              status_counts: { succeeded: 2, validation_failed: 1 },
+              platform_counts: { android: 2 },
+              runtime_stack_counts: { tflite: 2 },
+              device_profile_counts: { android_high_end: 2 },
+              averages: {
+                latency_p95_ms: 21.2,
+                memory_peak_mb: 188.5,
+                size_mb: 4.1,
+                rmse: 0.92,
+                baseline_rmse: 1.0,
+              },
+              recent_uploads: [
+                {
+                  receipt_id: "mobile-receipt-1",
+                  received_at: "2026-02-20T10:00:00Z",
+                  run_id: "run-100",
+                  device_profile: "android_high_end",
+                  status: "succeeded",
+                  platform: "android",
+                  runtime_stack: "tflite",
+                  latency_p95_ms: 21.2,
+                  rmse: 0.92,
+                },
+              ],
+            },
           },
         }),
       ) as unknown as typeof fetch;
@@ -294,5 +326,8 @@ describe("api client integration adapters", () => {
     expect(summary.lastRunId).toBe("run-100");
     expect(summary.lastRmse).toBeCloseTo(0.123);
     expect(summary.recentJobs[0].model).toBe("gru");
+    expect(summary.mobileBenchmarks?.totalReceipts).toBe(3);
+    expect(summary.mobileBenchmarks?.runtimeStackCounts.tflite).toBe(2);
+    expect(summary.mobileBenchmarks?.recentUploads[0].receiptId).toBe("mobile-receipt-1");
   });
 });
