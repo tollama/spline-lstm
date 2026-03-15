@@ -14,6 +14,11 @@ Receipt endpoints:
 
 - `GET /api/v1/mobile/benchmarks/receipts/{receipt_id}`
 - `GET /api/v1/mobile/benchmarks/receipts?run_id=<run_id>&device_profile=<profile>`
+- `GET /api/v1/mobile/benchmarks/summary?run_id=<run_id>&device_profile=<profile>`
+
+Dashboard summary also includes a `mobileBenchmarks` block at:
+
+- `GET /api/v1/dashboard/summary`
 
 ## Request body
 
@@ -98,6 +103,7 @@ These references show how to wrap the benchmark payload produced by:
 ## Failure behavior
 
 If validation fails, the endpoint returns `400` with a structured error payload under `error`.
+Rejected uploads also persist a receipt with `status: "validation_failed"` so operators can audit unsuccessful phone submissions.
 
 If auth is enabled in the backend, include `X-API-Token`.
 
@@ -130,3 +136,18 @@ Successful uploads return a receipt block:
 ```
 
 Use the receipt endpoints to audit whether a phone upload was accepted and which stored benchmark record it produced.
+
+## Summary endpoint
+
+Use the summary endpoint to inspect aggregate mobile telemetry without scanning raw receipt files:
+
+```bash
+curl http://127.0.0.1:8000/api/v1/mobile/benchmarks/summary?run_id=edge-demo-001
+```
+
+The response includes:
+
+- receipt totals and success rate
+- runtime and platform counts
+- average latency, memory, size, and RMSE from successful ingests
+- recent upload rows with `receipt_id`, `status`, `runtime_stack`, and `rmse`

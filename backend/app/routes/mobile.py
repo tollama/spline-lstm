@@ -38,6 +38,36 @@ def _persist_receipt(payload: dict[str, Any]) -> Path:
     return path
 
 
+def _new_receipt(
+    *,
+    run_id: str,
+    device_profile: str,
+    source_path: str,
+    request_id: str,
+    status: str,
+    record_path: str | None = None,
+    validation: dict[str, Any] | None = None,
+    error: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    receipt: dict[str, Any] = {
+        "receipt_id": f"mobile-receipt-{uuid.uuid4().hex[:16]}",
+        "received_at": utc_now_iso(),
+        "kind": "mobile_benchmark_ingest",
+        "run_id": run_id,
+        "device_profile": device_profile,
+        "source_path": source_path,
+        "status": status,
+        "request_id": request_id,
+    }
+    if record_path:
+        receipt["record_path"] = record_path
+    if validation:
+        receipt["validation"] = validation
+    if error:
+        receipt["error"] = error
+    return receipt
+
+
 async def _require_mobile_signature(request: Request) -> None:
     if not SECURITY.get("mobile_upload_signing_required"):
         return
@@ -81,6 +111,149 @@ def _select_record(leaderboard: dict[str, Any], device_profile: str) -> dict[str
     return None
 
 
+def _load_record_from_receipt(receipt: dict[str, Any]) -> dict[str, Any] | None:
+    record_path = receipt.get("record_path")
+    if isinstance(record_path, str):
+        payload = read_json_if_exists(Path(record_path))
+        if payload is not None:
+            return payload
+
+    run_id = receipt.get("run_id")
+    device_profile = receipt.get("device_profile")
+    if not isinstance(run_id, str) or not isinstance(device_profile, str):
+        return None
+    fallback = ARTIFACTS_DIR / "edge_bench" / run_id / f"{device_profile}.json"
+    return read_json_if_exists(fallback)
+
+
+def _iter_mobile_receipts() -> list[dict[str, Any]]:
+    root = ARTIFACTS_DIR / "mobile_receipts"
+    rows: list[dict[str, Any]] = []
+    if not root.exists():
+        return rows
+    for path in root.glob("*.json"):
+        payload = read_json_if_exists(path)
+        if isinstance(payload, dict):
+            rows.append(payload)
+    rows.sort(key=lambda item: str(item.get("received_at", "")), reverse=True)
+    return rows
+
+
+def build_mobile_benchmark_summary(
+    *,
+    run_id: str | None = None,
+    device_profile: str | None = None,
+    limit: int = 10,
+) -> dict[str, Any]:
+    receipts = [
+        receipt
+        for receipt in _iter_mobile_receipts()
+        if (run_id is None or receipt.get("run_id") == run_id)
+        and (device_profile is None or receipt.get("device_profile") == device_profile)
+    ]
+
+    status_counts: dict[str, int] = {}
+    runtime_counts: dict[str, int] = {}
+    platform_counts: dict[str, int] = {}
+    profile_counts: dict[str, int] = {}
+    unique_runs: set[str] = set()
+    recent_uploads: list[dict[str, Any]] = []
+
+    latency_values: list[float] = []
+    memory_values: list[float] = []
+    size_values: list[float] = []
+    rmse_values: list[float] = []
+    baseline_rmse_values: list[float] = []
+
+    for receipt in receipts:
+        status = str(receipt.get("status", "unknown"))
+        status_counts[status] = status_counts.get(status, 0) + 1
+
+        receipt_run_id = receipt.get("run_id")
+        if isinstance(receipt_run_id, str):
+            unique_runs.add(receipt_run_id)
+
+        profile = receipt.get("device_profile")
+        if isinstance(profile, str):
+            profile_counts[profile] = profile_counts.get(profile, 0) + 1
+
+        record = _load_record_from_receipt(receipt)
+        metadata = record.get("metadata", {}) if isinstance(record, dict) else {}
+        runtime_stack = record.get("runtime_stack") if isinstance(record, dict) else None
+        platform = metadata.get("platform") if isinstance(metadata, dict) else None
+        accuracy = record.get("accuracy", {}) if isinstance(record, dict) else {}
+        latency = record.get("latency_ms", {}) if isinstance(record, dict) else {}
+
+        if isinstance(runtime_stack, str):
+            runtime_counts[runtime_stack] = runtime_counts.get(runtime_stack, 0) + 1
+        if isinstance(platform, str):
+            platform_counts[platform] = platform_counts.get(platform, 0) + 1
+
+        if isinstance(latency, dict):
+            p95 = latency.get("p95")
+            if isinstance(p95, (int, float)):
+                latency_values.append(float(p95))
+        if isinstance(record, dict):
+            memory_peak = record.get("memory_peak_mb")
+            if isinstance(memory_peak, (int, float)):
+                memory_values.append(float(memory_peak))
+            size_mb = record.get("size_mb")
+            if isinstance(size_mb, (int, float)):
+                size_values.append(float(size_mb))
+        if isinstance(accuracy, dict):
+            rmse = accuracy.get("rmse")
+            if isinstance(rmse, (int, float)):
+                rmse_values.append(float(rmse))
+            baseline_rmse = accuracy.get("baseline_rmse")
+            if isinstance(baseline_rmse, (int, float)):
+                baseline_rmse_values.append(float(baseline_rmse))
+
+        if len(recent_uploads) < limit:
+            recent_uploads.append(
+                {
+                    "receipt_id": receipt.get("receipt_id"),
+                    "received_at": receipt.get("received_at"),
+                    "run_id": receipt.get("run_id"),
+                    "device_profile": receipt.get("device_profile"),
+                    "status": status,
+                    "platform": platform,
+                    "runtime_stack": runtime_stack,
+                    "latency_p95_ms": latency.get("p95") if isinstance(latency, dict) else None,
+                    "rmse": accuracy.get("rmse") if isinstance(accuracy, dict) else None,
+                }
+            )
+
+    success_count = sum(count for key, count in status_counts.items() if key == "succeeded")
+    total = len(receipts)
+    success_rate = (success_count / total) if total else None
+
+    def _mean(values: list[float]) -> float | None:
+        if not values:
+            return None
+        return round(sum(values) / len(values), 4)
+
+    return {
+        "total_receipts": total,
+        "successful_receipts": success_count,
+        "failed_receipts": total - success_count,
+        "success_rate": round(success_rate, 4) if success_rate is not None else None,
+        "unique_runs": len(unique_runs),
+        "latest_received_at": receipts[0].get("received_at") if receipts else None,
+        "status_counts": status_counts,
+        "platform_counts": platform_counts,
+        "runtime_stack_counts": runtime_counts,
+        "device_profile_counts": profile_counts,
+        "averages": {
+            "latency_p95_ms": _mean(latency_values),
+            "memory_peak_mb": _mean(memory_values),
+            "size_mb": _mean(size_values),
+            "rmse": _mean(rmse_values),
+            "baseline_rmse": _mean(baseline_rmse_values),
+        },
+        "recent_uploads": recent_uploads,
+    }
+
+
 def _ingest_one(
     *,
     payload: MobileBenchmarkIngestRequest,
@@ -100,7 +273,27 @@ def _ingest_one(
         strict_runtime_policy=payload.strict_runtime_policy,
     )
     if not validation["ok"]:
-        raise HTTPException(status_code=400, detail={"message": "invalid mobile benchmark payload", **validation})
+        receipt = _new_receipt(
+            run_id=payload.run_id,
+            device_profile=payload.device_profile,
+            source_path=str(source_path),
+            request_id=request.state.request_id,
+            status="validation_failed",
+            validation=validation,
+            error={"message": "invalid mobile benchmark payload"},
+        )
+        receipt_path = _persist_receipt(receipt)
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "message": "invalid mobile benchmark payload",
+                **validation,
+                "receipt": {
+                    "receipt_id": receipt["receipt_id"],
+                    "receipt_path": str(receipt_path),
+                },
+            },
+        )
 
     ingest_args = argparse.Namespace(
         run_id=payload.run_id,
@@ -146,20 +339,17 @@ async def ingest_mobile_benchmark(payload: MobileBenchmarkIngestRequest, request
             return cached
 
     item = _ingest_one(payload=payload, request=request)
-    receipt_id = f"mobile-receipt-{uuid.uuid4().hex[:16]}"
-    receipt = {
-        "receipt_id": receipt_id,
-        "received_at": utc_now_iso(),
-        "kind": "mobile_benchmark_ingest",
-        "run_id": payload.run_id,
-        "device_profile": payload.device_profile,
-        "source_path": item["source_path"],
-        "status": "succeeded",
-        "request_id": request.state.request_id,
-        "record_path": str(ARTIFACTS_DIR / "edge_bench" / payload.run_id / f"{payload.device_profile}.json"),
-    }
+    receipt = _new_receipt(
+        run_id=payload.run_id,
+        device_profile=payload.device_profile,
+        source_path=item["source_path"],
+        request_id=request.state.request_id,
+        status="succeeded",
+        record_path=str(ARTIFACTS_DIR / "edge_bench" / payload.run_id / f"{payload.device_profile}.json"),
+        validation=item["validation"],
+    )
     receipt_path = _persist_receipt(receipt)
-    item["receipt"] = {"receipt_id": receipt_id, "receipt_path": str(receipt_path)}
+    item["receipt"] = {"receipt_id": receipt["receipt_id"], "receipt_path": str(receipt_path)}
     response = {"ok": True, "data": item}
     if idem_key:
         idempotency_put(f"mobile:{idem_key}", response)
@@ -184,21 +374,18 @@ async def ingest_mobile_benchmark_batch(payload: MobileBenchmarkBatchIngestReque
     receipts: list[dict[str, Any]] = []
     for idx, item in enumerate(uploads):
         ingested = _ingest_one(payload=item, request=request, request_suffix=f"{request.state.request_id}-{idx}")
-        receipt_id = f"mobile-receipt-{uuid.uuid4().hex[:16]}"
-        receipt = {
-            "receipt_id": receipt_id,
-            "received_at": utc_now_iso(),
-            "kind": "mobile_benchmark_ingest",
-            "run_id": item.run_id,
-            "device_profile": item.device_profile,
-            "source_path": ingested["source_path"],
-            "status": "succeeded",
-            "request_id": request.state.request_id,
-            "record_path": str(ARTIFACTS_DIR / "edge_bench" / item.run_id / f"{item.device_profile}.json"),
-        }
+        receipt = _new_receipt(
+            run_id=item.run_id,
+            device_profile=item.device_profile,
+            source_path=ingested["source_path"],
+            request_id=request.state.request_id,
+            status="succeeded",
+            record_path=str(ARTIFACTS_DIR / "edge_bench" / item.run_id / f"{item.device_profile}.json"),
+            validation=ingested["validation"],
+        )
         receipt_path = _persist_receipt(receipt)
-        ingested["receipt"] = {"receipt_id": receipt_id, "receipt_path": str(receipt_path)}
-        receipts.append({"receipt_id": receipt_id, "receipt_path": str(receipt_path)})
+        ingested["receipt"] = {"receipt_id": receipt["receipt_id"], "receipt_path": str(receipt_path)}
+        receipts.append({"receipt_id": receipt["receipt_id"], "receipt_path": str(receipt_path)})
         items.append(ingested)
 
     response = {
@@ -231,18 +418,29 @@ def list_mobile_benchmark_receipts(
     device_profile: str | None = Query(default=None),
     limit: int = Query(default=20, ge=1, le=200),
 ) -> dict[str, Any]:
-    root = ARTIFACTS_DIR / "mobile_receipts"
-    rows: list[dict[str, Any]] = []
-    if root.exists():
-        for path in sorted(root.glob("*.json"), reverse=True):
-            payload = read_json_if_exists(path)
-            if not isinstance(payload, dict):
-                continue
-            if run_id and payload.get("run_id") != run_id:
-                continue
-            if device_profile and payload.get("device_profile") != device_profile:
-                continue
-            rows.append(payload)
-            if len(rows) >= limit:
-                break
+    rows = []
+    for payload in _iter_mobile_receipts():
+        if run_id and payload.get("run_id") != run_id:
+            continue
+        if device_profile and payload.get("device_profile") != device_profile:
+            continue
+        rows.append(payload)
+        if len(rows) >= limit:
+            break
     return {"ok": True, "data": {"items": rows, "count": len(rows), "correlation": corr(request, run_id=run_id)}}
+
+
+@router.get(f"{API_PREFIX}/mobile/benchmarks/summary")
+def mobile_benchmark_summary(
+    request: Request,
+    run_id: str | None = Query(default=None),
+    device_profile: str | None = Query(default=None),
+    limit: int = Query(default=10, ge=1, le=100),
+) -> dict[str, Any]:
+    return {
+        "ok": True,
+        "data": {
+            **build_mobile_benchmark_summary(run_id=run_id, device_profile=device_profile, limit=limit),
+            "correlation": corr(request, run_id=run_id),
+        },
+    }

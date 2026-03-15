@@ -45,6 +45,7 @@ def health(request: Request) -> dict[str, Any]:
 def dashboard_summary(request: Request) -> dict[str, Any]:
     store = request.app.state.store
     from backend.app.routes.jobs import to_job_payload
+    from backend.app.routes.mobile import build_mobile_benchmark_summary
 
     jobs = [to_job_payload(job, request=request) for job in store.list_recent(limit=10)]
     recent_jobs = [
@@ -66,6 +67,7 @@ def dashboard_summary(request: Request) -> dict[str, Any]:
             "lastRunId": last_run,
             "lastRmse": 0.123,
             "recentJobs": recent_jobs,
+            "mobileBenchmarks": build_mobile_benchmark_summary(limit=5),
             "correlation": corr(request),
         },
     }

@@ -130,6 +130,12 @@ def test_mobile_benchmark_upload_rejects_invalid_payload(monkeypatch, tmp_path: 
     detail = response.json()["error"]
     assert detail["message"] == "invalid mobile benchmark payload"
     assert any("does not match expected platform" in item for item in detail["errors"])
+    assert "receipt" in detail
+
+    receipt_id = detail["receipt"]["receipt_id"]
+    receipt_response = client.get(f"/api/v1/mobile/benchmarks/receipts/{receipt_id}")
+    assert receipt_response.status_code == 200
+    assert receipt_response.json()["data"]["status"] == "validation_failed"
 
 
 def test_mobile_benchmark_upload_is_idempotent(monkeypatch, tmp_path: Path) -> None:
@@ -301,3 +307,66 @@ def test_mobile_benchmark_upload_receipt_endpoints(monkeypatch, tmp_path: Path) 
     assert list_response.status_code == 200
     listed = list_response.json()["data"]["items"]
     assert any(item["receipt_id"] == receipt_id for item in listed)
+
+
+def test_mobile_benchmark_summary_endpoint(monkeypatch, tmp_path: Path) -> None:
+    client = _load_app(monkeypatch, tmp_path / "artifacts")
+    valid_payload = {
+        "run_id": "mobile-summary-001",
+        "device_profile": "android_high_end",
+        "expected_platform": "android",
+        "benchmark_result": {
+            "runtime_stack": "tflite",
+            "latency_ms": {"p50": 15.0, "p95": 20.0},
+            "memory_peak_mb": 190.0,
+            "size_mb": 4.2,
+            "attempts": 120,
+            "failures": 0,
+            "metadata": {
+                "platform": "android",
+                "device_model": "Pixel 8",
+                "os_version": "Android 15",
+                "app_version": "1.12.0",
+                "build_number": "12034",
+                "bundle_id": "ai.tollama.splineforecast",
+            },
+            "accuracy": {"rmse": 0.93, "baseline_rmse": 1.0},
+        },
+    }
+    invalid_payload = {
+        "run_id": "mobile-summary-001",
+        "device_profile": "ios_high_end",
+        "expected_platform": "ios",
+        "benchmark_result": {
+            "runtime_stack": "tflite",
+            "latency_ms": {"p50": 11.0, "p95": 14.0},
+            "memory_peak_mb": 180.0,
+            "size_mb": 4.0,
+            "attempts": 100,
+            "failures": 0,
+            "metadata": {
+                "platform": "android",
+                "device_model": "Pixel 8",
+                "os_version": "Android 15",
+                "app_version": "1.12.0",
+                "build_number": "12034",
+                "bundle_id": "ai.tollama.splineforecast",
+            },
+            "accuracy": {"rmse": 0.9, "baseline_rmse": 1.0},
+        },
+    }
+
+    ok_response = client.post("/api/v1/mobile/benchmarks:ingest", json=valid_payload)
+    assert ok_response.status_code == 200
+    bad_response = client.post("/api/v1/mobile/benchmarks:ingest", json=invalid_payload)
+    assert bad_response.status_code == 400
+
+    summary_response = client.get("/api/v1/mobile/benchmarks/summary", params={"run_id": "mobile-summary-001"})
+    assert summary_response.status_code == 200
+    data = summary_response.json()["data"]
+    assert data["total_receipts"] == 2
+    assert data["successful_receipts"] == 1
+    assert data["failed_receipts"] == 1
+    assert data["runtime_stack_counts"]["tflite"] == 1
+    assert data["platform_counts"]["android"] == 1
+    assert data["recent_uploads"]

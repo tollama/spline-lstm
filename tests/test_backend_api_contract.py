@@ -20,6 +20,7 @@ def test_health_and_dashboard_contract() -> None:
     data = dashboard.json()["data"]
     assert "serviceStatus" in data
     assert "recentJobs" in data
+    assert "mobileBenchmarks" in data
 
 
 def test_run_submit_job_status_logs_cancel_and_results_contract() -> None:
@@ -144,3 +145,37 @@ def test_mobile_benchmark_batch_ingest_api_contract() -> None:
     data = response.json()["data"]
     assert data["count"] == 1
     assert data["items"][0]["device_profile"] == "android_high_end"
+
+
+def test_mobile_benchmark_summary_api_contract() -> None:
+    payload = {
+        "run_id": "contract-mobile-summary-001",
+        "device_profile": "ios_high_end",
+        "expected_platform": "ios",
+        "benchmark_result": {
+            "runtime_stack": "onnx",
+            "latency_ms": {"p50": 18.0, "p95": 24.0},
+            "memory_peak_mb": 210.0,
+            "size_mb": 5.1,
+            "attempts": 120,
+            "failures": 0,
+            "metadata": {
+                "platform": "ios",
+                "device_model": "iPhone 15 Pro",
+                "os_version": "iOS 18.2",
+                "app_version": "1.12.0",
+                "build_number": "12034",
+                "bundle_id": "ai.tollama.splineforecast",
+            },
+            "accuracy": {"rmse": 0.95, "baseline_rmse": 1.02},
+        },
+    }
+    upload = client.post("/api/v1/mobile/benchmarks:ingest", json=payload)
+    assert upload.status_code == 200
+
+    response = client.get("/api/v1/mobile/benchmarks/summary", params={"run_id": "contract-mobile-summary-001"})
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert data["total_receipts"] >= 1
+    assert "recent_uploads" in data
+    assert data["platform_counts"]["ios"] >= 1
