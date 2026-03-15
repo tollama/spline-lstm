@@ -65,6 +65,7 @@ def test_edge_requirements_manifests_match_pyproject_profiles() -> None:
 def test_validate_edge_environment_ops_mode_runs(tmp_path: Path) -> None:
     root = Path(__file__).resolve().parents[1]
     cache_root = tmp_path / "cache"
+    artifacts_root = tmp_path / "artifacts"
     proc = subprocess.run(
         [
             sys.executable,
@@ -73,6 +74,8 @@ def test_validate_edge_environment_ops_mode_runs(tmp_path: Path) -> None:
             "ops",
             "--cache-root",
             str(cache_root),
+            "--artifacts-dir",
+            str(artifacts_root),
             "--skip-python-version-check",
         ],
         cwd=str(root),
@@ -85,6 +88,10 @@ def test_validate_edge_environment_ops_mode_runs(tmp_path: Path) -> None:
     assert payload["ok"] is True
     assert payload["checks"][0]["skipped"] is True
     assert payload["recommended_env"]["XDG_CACHE_HOME"] == str(cache_root)
+    check_names = {item["name"] for item in payload["checks"]}
+    assert "cli_help:scripts/ingest_edge_device_bench.py" in check_names
+    assert "cli_help:scripts/edge_release_gate.py" in check_names
+    assert f"writable:{artifacts_root}" in check_names
 
 
 def test_importing_src_does_not_eagerly_load_tensorflow() -> None:
@@ -156,3 +163,21 @@ def test_release_gate_cli_help_does_not_load_tensorflow() -> None:
     assert payload["exit_code"] == 0
     assert payload["tensorflow_loaded"] is False
     assert "Apply edge SLA gate before OTA promotion" in str(payload["stdout"])
+
+
+def test_edge_shell_scripts_expose_help() -> None:
+    root = Path(__file__).resolve().parents[1]
+    scripts = [
+        "scripts/edge_smoke_env.sh",
+        "scripts/build_edge_wheelhouse.sh",
+        "scripts/install_edge_from_wheelhouse.sh",
+    ]
+    for script in scripts:
+        proc = subprocess.run(
+            ["bash", script, "--help"],
+            cwd=str(root),
+            capture_output=True,
+            text=True,
+        )
+        assert proc.returncode == 0, proc.stderr
+        assert "Usage:" in proc.stdout

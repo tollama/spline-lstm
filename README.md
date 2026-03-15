@@ -84,6 +84,8 @@ python -m pip install -r requirements-edge-train-export.txt
 python -m pip install -e . --no-deps
 ```
 
+For offline deployment, use [docs/EDGE_AIRGAPPED_RUNBOOK.md](/Users/yongchoelchoi/Documents/TollamaAI-Github/spline-lstm/docs/EDGE_AIRGAPPED_RUNBOOK.md).
+
 ### Basic Usage
 
 You can run the end-to-end pipeline (Preprocessing → Training → Evaluation) out of the box using our provided synthetic data generator and smoke test scripts:

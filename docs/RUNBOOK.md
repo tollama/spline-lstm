@@ -5,6 +5,7 @@ Related docs:
 - GUI/backend production cutover checklist: `./GUI_PROD_CUTOVER_CHECKLIST.md`
 - Operator quick map: `../OPERATIONS_QUICKSTART.md`
 - Edge device result schema: `./EDGE_DEVICE_RESULT_SCHEMA.md`
+- Edge air-gapped deployment: `./EDGE_AIRGAPPED_RUNBOOK.md`
 - Release gate checklist (cutover): `../RELEASE_CHECKLIST.md`
 - GUI production hardening closeout: `./GUI_PROD_HARDENING_CLOSEOUT.md`
 
@@ -56,6 +57,10 @@ python -m pip install -e . --no-deps
 make edge-smoke-env MODE=ops
 make edge-smoke-env MODE=benchmark-onnx
 make edge-smoke-env MODE=train-export
+
+# offline wheelhouse build/install flow
+make edge-wheelhouse-build MODE=all
+make edge-wheelhouse-install MODE=ops WHEELHOUSE_DIR=wheelhouse-edge
 ```
 
 ## 3) 산출물 위치 (run_id 스코프)
@@ -184,6 +189,10 @@ python3 -m src.preprocessing.smoke --run-id <RUN_ID>
   - 용도: 새 venv 생성, 선택한 프로파일 설치, `validate_edge_environment.py` 검증
   - `MODE=ops`는 sample ingest + release gate까지 추가 검증
   - override 가능: `VENV_DIR`, `ARTIFACTS_DIR`, `CACHE_ROOT`, `RUN_ID`
+- `make edge-wheelhouse-build MODE=<ops|benchmark-onnx|train-export|all>`
+  - 용도: 연결된 환경에서 offline wheelhouse 생성
+- `make edge-wheelhouse-install MODE=<ops|benchmark-onnx|train-export>`
+  - 용도: edge node에서 `--no-index --find-links` 기반 설치 + validator 실행
 
 ## 7) 최소 운영 점검 체크리스트
 - [ ] E2E 명령 1회 성공

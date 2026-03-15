@@ -65,6 +65,32 @@ jobs:
           name: coverage-report
           path: coverage.xml
 
+  edge-profile-smoke:
+    name: Edge Profile Smoke (${{ matrix.mode }}, Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11"]
+        mode: ["ops", "benchmark-onnx", "train-export"]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+
+      - name: Fresh edge profile smoke
+        run: |
+          bash scripts/edge_smoke_env.sh \
+            --mode "${{ matrix.mode }}" \
+            --venv-dir "${RUNNER_TEMP}/venv-${{ matrix.mode }}-${{ matrix.python-version }}" \
+            --artifacts-dir "${RUNNER_TEMP}/artifacts-${{ matrix.mode }}-${{ matrix.python-version }}" \
+            --cache-root "${RUNNER_TEMP}/cache-${{ matrix.mode }}-${{ matrix.python-version }}" \
+            --run-id "ci-edge-smoke-${{ matrix.mode }}-${{ matrix.python-version }}-${{ github.run_id }}-${{ github.run_attempt }}"
+
   edge-export-benchmark:
     name: Edge Export & Benchmark (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest

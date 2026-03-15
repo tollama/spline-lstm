@@ -66,6 +66,15 @@ make edge-smoke-env MODE=train-export
 
 `make edge-smoke-env` wraps `scripts/edge_smoke_env.sh` and installs from `requirements-edge-ops.txt`, `requirements-edge-runtime.txt`, or `requirements-edge-train-export.txt` before `pip install -e . --no-deps`. Use `VENV_DIR`, `ARTIFACTS_DIR`, `CACHE_ROOT`, and `RUN_ID` to override defaults on constrained edge hosts.
 
+Offline or air-gapped deployment flow:
+
+```bash
+make edge-wheelhouse-build MODE=all
+make edge-wheelhouse-install MODE=ops WHEELHOUSE_DIR=wheelhouse-edge
+```
+
+See [docs/EDGE_AIRGAPPED_RUNBOOK.md](/Users/yongchoelchoi/Documents/TollamaAI-Github/spline-lstm/docs/EDGE_AIRGAPPED_RUNBOOK.md) for the full procedure.
+
 ## Edge benchmark flow
 
 ```bash

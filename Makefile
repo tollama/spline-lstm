@@ -1,4 +1,4 @@
-.PHONY: help lint format type-check ci-gate quick-gate smoke-gate edge-smoke-env edge-make-device-result edge-ingest-example edge-release-example edge-ingest-device edge-release-gate edge-selection-lane full-regression pre-release-verify
+.PHONY: help lint format type-check ci-gate quick-gate smoke-gate edge-smoke-env edge-wheelhouse-build edge-wheelhouse-install edge-make-device-result edge-ingest-example edge-release-example edge-ingest-device edge-release-gate edge-selection-lane full-regression pre-release-verify
 
 help:
 	@echo "Common operator flows"
@@ -9,6 +9,8 @@ help:
 	@echo "  make quick-gate         # fast gate: smoke + targeted pytest"
 	@echo "  make smoke-gate         # smoke gate only"
 	@echo "  make edge-smoke-env     # fresh-venv edge install/run validation (MODE=ops|benchmark-onnx|train-export)"
+	@echo "  make edge-wheelhouse-build # build offline wheelhouse for edge profiles"
+	@echo "  make edge-wheelhouse-install # install selected edge profile from a wheelhouse"
 	@echo "  make edge-make-device-result # generate a real-device benchmark JSON payload"
 	@echo "  make edge-ingest-example # generate + ingest one sample device benchmark payload for RUN_ID"
 	@echo "  make edge-release-example # generate + ingest + release-gate one sample device payload for RUN_ID"
@@ -48,7 +50,24 @@ edge-smoke-env:
 	@MPLCFG="$${MPLCONFIGDIR:-/tmp/mpl-spline}"; \
 	XDGCACHE="$${XDG_CACHE_HOME:-/tmp/xdg-cache-spline}"; \
 	mkdir -p "$$MPLCFG" "$$XDGCACHE"; \
-	MPLCONFIGDIR="$$MPLCFG" XDG_CACHE_HOME="$$XDGCACHE" bash scripts/edge_smoke_env.sh --mode "$${MODE:-ops}" --venv-dir "$${VENV_DIR:-.venv-edge-smoke}" --artifacts-dir "$${ARTIFACTS_DIR:-artifacts-edge-smoke}" --cache-root "$$XDGCACHE" --run-id "$${RUN_ID:-edge-smoke-$$(date +%Y%m%d-%H%M%S)}"
+	EXTRA_ARGS=""; \
+	if [ -n "$${WHEELHOUSE_DIR:-}" ]; then EXTRA_ARGS="$$EXTRA_ARGS --wheelhouse-dir $${WHEELHOUSE_DIR}"; fi; \
+	if [ -n "$${MIN_FREE_DISK_MB:-}" ]; then EXTRA_ARGS="$$EXTRA_ARGS --min-free-disk-mb $${MIN_FREE_DISK_MB}"; fi; \
+	if [ -n "$${MIN_TOTAL_MEMORY_MB:-}" ]; then EXTRA_ARGS="$$EXTRA_ARGS --min-total-memory-mb $${MIN_TOTAL_MEMORY_MB}"; fi; \
+	if [ -n "$${ONNX_SMOKE_MODEL:-}" ]; then EXTRA_ARGS="$$EXTRA_ARGS --onnx-smoke-model $${ONNX_SMOKE_MODEL}"; fi; \
+	if [ "$${SKIP_FUNCTIONAL_SMOKE:-0}" = "1" ]; then EXTRA_ARGS="$$EXTRA_ARGS --skip-functional-smoke"; fi; \
+	eval "MPLCONFIGDIR=$$MPLCFG XDG_CACHE_HOME=$$XDGCACHE bash scripts/edge_smoke_env.sh --mode $${MODE:-ops} --venv-dir $${VENV_DIR:-.venv-edge-smoke} --artifacts-dir $${ARTIFACTS_DIR:-artifacts-edge-smoke} --cache-root $$XDGCACHE --run-id $${RUN_ID:-edge-smoke-$$(date +%Y%m%d-%H%M%S)} $$EXTRA_ARGS"
+
+edge-wheelhouse-build:
+	@EXTRA_ARGS=""; \
+	if [ "$${CLEAN:-0}" = "1" ]; then EXTRA_ARGS="$$EXTRA_ARGS --clean"; fi; \
+	eval "bash scripts/build_edge_wheelhouse.sh --mode $${MODE:-all} --wheelhouse-dir $${WHEELHOUSE_DIR:-wheelhouse-edge} $$EXTRA_ARGS"
+
+edge-wheelhouse-install:
+	@EXTRA_ARGS=""; \
+	if [ "$${SKIP_VALIDATE:-0}" = "1" ]; then EXTRA_ARGS="$$EXTRA_ARGS --skip-validate"; fi; \
+	if [ "$${SKIP_FUNCTIONAL_SMOKE:-0}" = "1" ]; then EXTRA_ARGS="$$EXTRA_ARGS --skip-functional-smoke"; fi; \
+	eval "bash scripts/install_edge_from_wheelhouse.sh --mode $${MODE:-ops} --wheelhouse-dir $${WHEELHOUSE_DIR:-wheelhouse-edge} --venv-dir $${VENV_DIR:-.venv-edge-offline} --cache-root $${CACHE_ROOT:-/tmp/xdg-cache-spline-edge-offline} --artifacts-dir $${ARTIFACTS_DIR:-artifacts-edge-offline} $$EXTRA_ARGS"
 
 edge-make-device-result:
 	@OUTPUT="$${OUTPUT:?OUTPUT is required (e.g. make edge-make-device-result OUTPUT=/tmp/android_edge.json)}"; \
