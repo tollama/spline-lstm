@@ -1,0 +1,31 @@
+{
+  "runtime_stack": "onnx",
+  "fallback_chain": ["onnx", "keras"],
+  "status": "succeeded",
+  "latency_ms": {
+    "p50": 18.6,
+    "p95": 25.4
+  },
+  "memory_peak_mb": 214.2,
+  "size_mb": 5.1,
+  "attempts": 250,
+  "failures": 0,
+  "metadata": {
+    "platform": "ios",
+    "device_model": "iPhone 15 Pro",
+    "os_version": "iOS 18.2",
+    "app_version": "1.12.0",
+    "build_number": "12034",
+    "bundle_id": "ai.tollama.splineforecast"
+  },
+  "accuracy": {
+    "rmse": 0.95,
+    "baseline_rmse": 1.02,
+    "rmse_degradation_pct": -6.862745098,
+    "mae": 0.73,
+    "wape": 9.1,
+    "max_abs_diff": 1.49,
+    "n_samples": 64,
+    "per_horizon_rmse": [0.82, 0.94, 1.09]
+  }
+}

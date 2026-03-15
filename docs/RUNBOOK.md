@@ -5,6 +5,8 @@ Related docs:
 - GUI/backend production cutover checklist: `./GUI_PROD_CUTOVER_CHECKLIST.md`
 - Operator quick map: `../OPERATIONS_QUICKSTART.md`
 - Edge device result schema: `./EDGE_DEVICE_RESULT_SCHEMA.md`
+- Mobile deployment: `./MOBILE_EDGE_DEPLOYMENT.md`
+- Mobile bundle schema: `./MOBILE_BUNDLE_SCHEMA.md`
 - Edge air-gapped deployment: `./EDGE_AIRGAPPED_RUNBOOK.md`
 - Release gate checklist (cutover): `../RELEASE_CHECKLIST.md`
 - GUI production hardening closeout: `./GUI_PROD_HARDENING_CLOSEOUT.md`

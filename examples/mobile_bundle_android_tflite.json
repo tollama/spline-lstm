@@ -1,0 +1,39 @@
+{
+  "schema_version": "mobile_bundle.v1",
+  "platform": "android",
+  "app": {
+    "bundle_id": "ai.tollama.splineforecast",
+    "min_version": "1.12.0",
+    "build_number": "12034"
+  },
+  "model": {
+    "model_id": "spline-edge-forecast",
+    "run_id": "edge-demo-001",
+    "semantic_version": "1.2.3",
+    "runtime_stack": "tflite",
+    "fallback_chain": ["tflite", "keras"],
+    "quantization": "fp16",
+    "relative_path": "assets/models/model.tflite",
+    "source_export_path": "artifacts/exports/edge-demo-001/tflite/model.tflite",
+    "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    "size_bytes": 4404019
+  },
+  "export_artifacts": {
+    "export_manifest_path": "artifacts/exports/edge-demo-001/manifest.json",
+    "ota_manifest_path": "artifacts/exports/edge-demo-001/ota_manifest.json",
+    "edge_eval_path": "artifacts/exports/edge-demo-001/edge_eval.npz"
+  },
+  "input_specs": [
+    {
+      "name": "x",
+      "shape": [1, 24, 8],
+      "dtype": "float32"
+    }
+  ],
+  "platform_config": {
+    "asset_pack": "forecast_models",
+    "abi_filters": ["arm64-v8a"],
+    "runtime_library": "org.tensorflow:tensorflow-lite",
+    "min_sdk": 26
+  }
+}

@@ -184,4 +184,6 @@ If you only have measured numbers, `scripts/make_edge_device_result.py` will gen
 - Project entry: `README.md`
 - Detailed operations: `docs/RUNBOOK.md`
 - Edge device schema: `docs/EDGE_DEVICE_RESULT_SCHEMA.md`
+- Mobile deployment: `docs/MOBILE_EDGE_DEPLOYMENT.md`
+- Mobile bundle schema: `docs/MOBILE_BUNDLE_SCHEMA.md`
 - Release gate checklist: `RELEASE_CHECKLIST.md`

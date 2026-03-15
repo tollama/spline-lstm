@@ -6,6 +6,8 @@ Reference example:
 
 - `examples/edge_device_result_android_high_end.json`
 - `examples/edge_device_result_ios_high_end.json`
+- `examples/mobile_benchmark_result_android_pixel8.json`
+- `examples/mobile_benchmark_result_ios_iphone15pro.json`
 - Generator script: `scripts/make_edge_device_result.py`
 
 ## Purpose
@@ -74,6 +76,7 @@ This is the preferred schema for production use because release gating can use r
 
 - `runtime_stack` or `runtime`: runtime used on device, usually `tflite`, `onnx`, or `keras`
 - `fallback_chain`: optional runtime resolution order observed on device
+- `metadata`: optional device/app metadata block, especially useful for Android/iOS app benchmarks
 - `latency_p50_ms`, `latency_p95_ms`: direct latency fields
 - `latency_ms`: object form with `p50` and `p95`
 - `latency_ms_samples` or `latency_samples_ms`: raw samples; ingest computes `p50` and `p95`
@@ -145,3 +148,5 @@ python3 scripts/make_edge_device_result.py \
   --accuracy-wape 8.9 \
   --per-horizon-rmse 0.81,0.93,1.05
 ```
+
+For smartphone app deployment contracts, see [MOBILE_EDGE_DEPLOYMENT.md](/Users/yongchoelchoi/Documents/TollamaAI-Github/spline-lstm/docs/MOBILE_EDGE_DEPLOYMENT.md) and [MOBILE_BUNDLE_SCHEMA.md](/Users/yongchoelchoi/Documents/TollamaAI-Github/spline-lstm/docs/MOBILE_BUNDLE_SCHEMA.md).

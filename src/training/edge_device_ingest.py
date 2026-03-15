@@ -167,6 +167,18 @@ def _extract_device_accuracy(raw_payload: dict[str, Any]) -> dict[str, Any] | No
     return normalized
 
 
+def _extract_metadata(raw_payload: dict[str, Any]) -> dict[str, Any] | None:
+    metadata = raw_payload.get("metadata")
+    if isinstance(metadata, dict):
+        return dict(metadata)
+
+    mobile_context = raw_payload.get("mobile_context")
+    if isinstance(mobile_context, dict):
+        return {"mobile_context": dict(mobile_context)}
+
+    return None
+
+
 def _score_record(
     *,
     model_rmse: float | None,
@@ -256,6 +268,7 @@ def _build_device_record(
     fallback_chain = raw_payload.get("fallback_chain")
     if not isinstance(fallback_chain, list) or not fallback_chain:
         fallback_chain = [runtime_stack] if runtime_stack == "keras" else [runtime_stack, "keras"]
+    metadata = _extract_metadata(raw_payload)
 
     return {
         "run_id": run_id,
@@ -278,6 +291,7 @@ def _build_device_record(
             "path": str(source_path),
         },
         "accuracy": raw_accuracy,
+        "metadata": metadata,
         **score,
     }
 
@@ -377,8 +391,8 @@ def build_parser() -> argparse.ArgumentParser:
         epilog=(
             "Accepted device-result JSON fields: runtime/runtime_stack, latency_p50_ms/latency_p95_ms "
             "or latency_ms{p50,p95} or latency_ms_samples, size_mb/model_size_bytes, "
-            "ram_peak_mb/memory_peak_mb, attempts, failures, fallback_chain, and optional accuracy "
-            "block. The preferred accuracy payload is "
+            "ram_peak_mb/memory_peak_mb, attempts, failures, fallback_chain, optional metadata block, "
+            "and optional accuracy block. The preferred accuracy payload is "
             "accuracy={rmse, baseline_rmse, rmse_degradation_pct?, mae?, wape?, per_horizon_rmse?}. "
             "When accuracy is supplied, release gating prefers it over offline metrics JSON."
         ),

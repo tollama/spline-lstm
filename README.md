@@ -227,6 +227,11 @@ Artifacts:
 - Candidate lane selection: `artifacts/edge_selection/<experiment_id>/selection.json`
 - Real-device ingest wrapper: `scripts/ingest_edge_device_bench.py`
 
+Smartphone deployment references:
+- `docs/MOBILE_EDGE_DEPLOYMENT.md`
+- `docs/MOBILE_BUNDLE_SCHEMA.md`
+- `scripts/make_mobile_bundle_manifest.py`
+
 Backend runtime-aware inference endpoint:
 - `POST /api/v1/forecast/infer` (reads `runtime_stack` + `fallback_chain`, then attempts `tflite -> onnx -> keras -> naive`)
 

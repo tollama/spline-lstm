@@ -1,4 +1,4 @@
-.PHONY: help lint format type-check ci-gate quick-gate smoke-gate edge-smoke-env edge-wheelhouse-build edge-wheelhouse-install edge-make-device-result edge-ingest-example edge-release-example edge-ingest-device edge-release-gate edge-selection-lane full-regression pre-release-verify
+.PHONY: help lint format type-check ci-gate quick-gate smoke-gate edge-smoke-env edge-wheelhouse-build edge-wheelhouse-install edge-make-mobile-bundle edge-make-device-result edge-ingest-example edge-release-example edge-ingest-device edge-release-gate edge-selection-lane full-regression pre-release-verify
 
 help:
 	@echo "Common operator flows"
@@ -11,6 +11,7 @@ help:
 	@echo "  make edge-smoke-env     # fresh-venv edge install/run validation (MODE=ops|benchmark-onnx|train-export)"
 	@echo "  make edge-wheelhouse-build # build offline wheelhouse for edge profiles"
 	@echo "  make edge-wheelhouse-install # install selected edge profile from a wheelhouse"
+	@echo "  make edge-make-mobile-bundle # generate Android/iOS mobile bundle manifest from export manifest"
 	@echo "  make edge-make-device-result # generate a real-device benchmark JSON payload"
 	@echo "  make edge-ingest-example # generate + ingest one sample device benchmark payload for RUN_ID"
 	@echo "  make edge-release-example # generate + ingest + release-gate one sample device payload for RUN_ID"
@@ -68,6 +69,23 @@ edge-wheelhouse-install:
 	if [ "$${SKIP_VALIDATE:-0}" = "1" ]; then EXTRA_ARGS="$$EXTRA_ARGS --skip-validate"; fi; \
 	if [ "$${SKIP_FUNCTIONAL_SMOKE:-0}" = "1" ]; then EXTRA_ARGS="$$EXTRA_ARGS --skip-functional-smoke"; fi; \
 	eval "bash scripts/install_edge_from_wheelhouse.sh --mode $${MODE:-ops} --wheelhouse-dir $${WHEELHOUSE_DIR:-wheelhouse-edge} --venv-dir $${VENV_DIR:-.venv-edge-offline} --cache-root $${CACHE_ROOT:-/tmp/xdg-cache-spline-edge-offline} --artifacts-dir $${ARTIFACTS_DIR:-artifacts-edge-offline} $$EXTRA_ARGS"
+
+edge-make-mobile-bundle:
+	@OUTPUT="$${OUTPUT:?OUTPUT is required (e.g. make edge-make-mobile-bundle OUTPUT=/tmp/android_bundle.json)}"; \
+	EXPORT_MANIFEST="$${EXPORT_MANIFEST:?EXPORT_MANIFEST is required (e.g. artifacts/exports/<run_id>/manifest.json)}"; \
+	PLATFORM="$${PLATFORM:?PLATFORM is required (android or ios)}"; \
+	BUNDLE_ID="$${BUNDLE_ID:?BUNDLE_ID is required (e.g. ai.tollama.splineforecast)}"; \
+	EXTRA_ARGS=""; \
+	if [ -n "$${BUILD_NUMBER:-}" ]; then EXTRA_ARGS="$$EXTRA_ARGS --build-number $${BUILD_NUMBER}"; fi; \
+	if [ -n "$${RUNTIME_STACK:-}" ]; then EXTRA_ARGS="$$EXTRA_ARGS --runtime-stack $${RUNTIME_STACK}"; fi; \
+	if [ -n "$${RELATIVE_MODEL_PATH:-}" ]; then EXTRA_ARGS="$$EXTRA_ARGS --relative-model-path $${RELATIVE_MODEL_PATH}"; fi; \
+	if [ -n "$${ASSET_PACK:-}" ]; then EXTRA_ARGS="$$EXTRA_ARGS --asset-pack $${ASSET_PACK}"; fi; \
+	if [ -n "$${ABI_FILTERS:-}" ]; then EXTRA_ARGS="$$EXTRA_ARGS --abi-filters $${ABI_FILTERS}"; fi; \
+	if [ -n "$${RUNTIME_LIBRARY:-}" ]; then EXTRA_ARGS="$$EXTRA_ARGS --runtime-library $${RUNTIME_LIBRARY}"; fi; \
+	if [ -n "$${MIN_SDK:-}" ]; then EXTRA_ARGS="$$EXTRA_ARGS --min-sdk $${MIN_SDK}"; fi; \
+	if [ -n "$${BUNDLE_RESOURCE_SUBDIR:-}" ]; then EXTRA_ARGS="$$EXTRA_ARGS --bundle-resource-subdir $${BUNDLE_RESOURCE_SUBDIR}"; fi; \
+	if [ -n "$${MINIMUM_IOS_VERSION:-}" ]; then EXTRA_ARGS="$$EXTRA_ARGS --minimum-ios-version $${MINIMUM_IOS_VERSION}"; fi; \
+	eval "python3 scripts/make_mobile_bundle_manifest.py --platform $$PLATFORM --export-manifest $$EXPORT_MANIFEST --output $$OUTPUT --bundle-id $$BUNDLE_ID $$EXTRA_ARGS"
 
 edge-make-device-result:
 	@OUTPUT="$${OUTPUT:?OUTPUT is required (e.g. make edge-make-device-result OUTPUT=/tmp/android_edge.json)}"; \
