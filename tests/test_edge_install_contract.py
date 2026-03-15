@@ -65,3 +65,57 @@ def test_importing_src_does_not_eagerly_load_tensorflow() -> None:
     assert proc.returncode == 0, proc.stderr
     payload = json.loads(proc.stdout)
     assert payload["tensorflow_loaded"] is False
+
+
+def _run_help_without_tensorflow(script_path: str) -> dict[str, object]:
+    root = Path(__file__).resolve().parents[1]
+    code = f"""
+import contextlib
+import io
+import json
+import runpy
+import sys
+
+sys.argv = [{script_path!r}, "--help"]
+exit_code = 0
+stdout = io.StringIO()
+stderr = io.StringIO()
+with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+    try:
+        runpy.run_path(sys.argv[0], run_name="__main__")
+    except SystemExit as exc:
+        exit_code = exc.code if isinstance(exc.code, int) else 0
+print(json.dumps({{
+    "exit_code": exit_code,
+    "tensorflow_loaded": "tensorflow" in sys.modules,
+    "stdout": stdout.getvalue(),
+    "stderr": stderr.getvalue(),
+}}))
+sys.exit(exit_code)
+"""
+    proc = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            code,
+        ],
+        cwd=str(root),
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode == 0, proc.stderr
+    return json.loads(proc.stdout)
+
+
+def test_ingest_cli_help_does_not_load_tensorflow() -> None:
+    payload = _run_help_without_tensorflow("scripts/ingest_edge_device_bench.py")
+    assert payload["exit_code"] == 0
+    assert payload["tensorflow_loaded"] is False
+    assert "Ingest real-device benchmark results into edge benchmark artifacts" in str(payload["stdout"])
+
+
+def test_release_gate_cli_help_does_not_load_tensorflow() -> None:
+    payload = _run_help_without_tensorflow("scripts/edge_release_gate.py")
+    assert payload["exit_code"] == 0
+    assert payload["tensorflow_loaded"] is False
+    assert "Apply edge SLA gate before OTA promotion" in str(payload["stdout"])

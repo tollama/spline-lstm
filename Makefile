@@ -1,4 +1,4 @@
-.PHONY: help lint format type-check ci-gate quick-gate smoke-gate edge-make-device-result edge-ingest-example edge-release-example edge-ingest-device edge-release-gate edge-selection-lane full-regression pre-release-verify
+.PHONY: help lint format type-check ci-gate quick-gate smoke-gate edge-smoke-env edge-make-device-result edge-ingest-example edge-release-example edge-ingest-device edge-release-gate edge-selection-lane full-regression pre-release-verify
 
 help:
 	@echo "Common operator flows"
@@ -8,6 +8,7 @@ help:
 	@echo "  make ci-gate            # lint + type-check + full regression tests"
 	@echo "  make quick-gate         # fast gate: smoke + targeted pytest"
 	@echo "  make smoke-gate         # smoke gate only"
+	@echo "  make edge-smoke-env     # fresh-venv edge install/run validation (MODE=ops|benchmark-onnx|train-export)"
 	@echo "  make edge-make-device-result # generate a real-device benchmark JSON payload"
 	@echo "  make edge-ingest-example # generate + ingest one sample device benchmark payload for RUN_ID"
 	@echo "  make edge-release-example # generate + ingest + release-gate one sample device payload for RUN_ID"
@@ -42,6 +43,12 @@ smoke-gate:
 	@RUN_ID="$${RUN_ID:-smoke-gate-$$(date +%Y%m%d-%H%M%S)}"; \
 	echo "[smoke-gate] RUN_ID=$$RUN_ID"; \
 	env RUN_ID="$$RUN_ID" EPOCHS="$${EPOCHS:-1}" ARTIFACTS_DIR="$${ARTIFACTS_DIR:-artifacts}" bash scripts/smoke_test.sh
+
+edge-smoke-env:
+	@MPLCFG="$${MPLCONFIGDIR:-/tmp/mpl-spline}"; \
+	XDGCACHE="$${XDG_CACHE_HOME:-/tmp/xdg-cache-spline}"; \
+	mkdir -p "$$MPLCFG" "$$XDGCACHE"; \
+	MPLCONFIGDIR="$$MPLCFG" XDG_CACHE_HOME="$$XDGCACHE" bash scripts/edge_smoke_env.sh --mode "$${MODE:-ops}" --venv-dir "$${VENV_DIR:-.venv-edge-smoke}" --artifacts-dir "$${ARTIFACTS_DIR:-artifacts-edge-smoke}" --cache-root "$$XDGCACHE" --run-id "$${RUN_ID:-edge-smoke-$$(date +%Y%m%d-%H%M%S)}"
 
 edge-make-device-result:
 	@OUTPUT="$${OUTPUT:?OUTPUT is required (e.g. make edge-make-device-result OUTPUT=/tmp/android_edge.json)}"; \

@@ -46,7 +46,15 @@ pip install -e ".[preprocessing,train,edge-export]"
 python3 scripts/validate_edge_environment.py --mode ops
 python3 scripts/validate_edge_environment.py --mode benchmark-onnx
 python3 scripts/validate_edge_environment.py --mode train-export
+
+# create a fresh venv, install the selected profile, validate it,
+# and for ops mode run the sample ingest+release path
+make edge-smoke-env MODE=ops
+make edge-smoke-env MODE=benchmark-onnx
+make edge-smoke-env MODE=train-export
 ```
+
+`make edge-smoke-env` wraps `scripts/edge_smoke_env.sh`. Use `VENV_DIR`, `ARTIFACTS_DIR`, `CACHE_ROOT`, and `RUN_ID` to override defaults on constrained edge hosts.
 
 ## Edge benchmark flow
 
@@ -123,6 +131,10 @@ If you only have measured numbers, `scripts/make_edge_device_result.py` will gen
   - Check `logs/` and `artifacts/logs/<run_id>.*.log`
   - Re-run with explicit run id:
     - `RUN_ID=debug-<ts> make smoke-gate`
+- **Fresh edge-node smoke install failed**
+  - Confirm the node can create a venv and install the selected profile extras.
+  - Re-run with a writable cache root:
+    - `CACHE_ROOT=/tmp/edge-cache make edge-smoke-env MODE=ops`
 - **run_id mismatch / contract failure**
   - Ensure same run id is used across `processed.npz`, `meta.json`, `preprocessor.pkl`, and runner args.
   - See: `docs/RUNBOOK.md` section on run_id mismatch guard.

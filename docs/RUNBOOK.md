@@ -41,6 +41,11 @@ python3 scripts/validate_edge_environment.py --mode benchmark-onnx
 
 # full train/export node
 python3 scripts/validate_edge_environment.py --mode train-export
+
+# clean edge-node smoke flow
+make edge-smoke-env MODE=ops
+make edge-smoke-env MODE=benchmark-onnx
+make edge-smoke-env MODE=train-export
 ```
 
 ## 3) 산출물 위치 (run_id 스코프)
@@ -159,6 +164,10 @@ python3 -m src.preprocessing.smoke --run-id <RUN_ID>
   - 용도: 위 + ONNX benchmark/runtime validation
 - `pip install -e ".[preprocessing,train,edge-export]"`
   - 용도: training, export, TFLite/ONNX export, full benchmark path
+- `make edge-smoke-env MODE=<ops|benchmark-onnx|train-export>`
+  - 용도: 새 venv 생성, 선택한 프로파일 설치, `validate_edge_environment.py` 검증
+  - `MODE=ops`는 sample ingest + release gate까지 추가 검증
+  - override 가능: `VENV_DIR`, `ARTIFACTS_DIR`, `CACHE_ROOT`, `RUN_ID`
 
 ## 7) 최소 운영 점검 체크리스트
 - [ ] E2E 명령 1회 성공

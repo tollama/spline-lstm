@@ -63,6 +63,9 @@ pip install -e ".[preprocessing,train,edge-export]"
 
 # Edge environment self-check
 python3 scripts/validate_edge_environment.py --mode ops
+
+# Fresh edge-node smoke check from a clean venv
+make edge-smoke-env MODE=ops
 ```
 
 ### Basic Usage
