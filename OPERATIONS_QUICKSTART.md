@@ -79,6 +79,9 @@ make edge-make-device-result \
   FAILURES=0 \
   ACCURACY_RMSE=0.94 \
   ACCURACY_BASELINE_RMSE=1.00
+
+# 3c) one-command sample generate + ingest path
+RUN_ID=edge-ops-sample-001 make edge-ingest-example
 ```
 
 Benchmark reports now surface:

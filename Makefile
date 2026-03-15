@@ -1,4 +1,4 @@
-.PHONY: help lint format type-check ci-gate quick-gate smoke-gate edge-make-device-result edge-ingest-device edge-release-gate edge-selection-lane full-regression pre-release-verify
+.PHONY: help lint format type-check ci-gate quick-gate smoke-gate edge-make-device-result edge-ingest-example edge-ingest-device edge-release-gate edge-selection-lane full-regression pre-release-verify
 
 help:
 	@echo "Common operator flows"
@@ -9,6 +9,7 @@ help:
 	@echo "  make quick-gate         # fast gate: smoke + targeted pytest"
 	@echo "  make smoke-gate         # smoke gate only"
 	@echo "  make edge-make-device-result # generate a real-device benchmark JSON payload"
+	@echo "  make edge-ingest-example # generate + ingest one sample device benchmark payload for RUN_ID"
 	@echo "  make edge-ingest-device # ingest real-device benchmark JSON into edge_bench"
 	@echo "  make edge-release-gate  # OTA promotion gate from edge benchmark results"
 	@echo "  make edge-selection-lane # run candidate lane and auto-select champion/fallback (BENCHMARK/GATE/SCORE/TEACHER options optional)"
@@ -63,6 +64,34 @@ edge-make-device-result:
 	if [ -n "$${ACCURACY_N_SAMPLES:-}" ]; then EXTRA_ARGS="$$EXTRA_ARGS --accuracy-n-samples $${ACCURACY_N_SAMPLES}"; fi; \
 	if [ -n "$${PER_HORIZON_RMSE:-}" ]; then EXTRA_ARGS="$$EXTRA_ARGS --per-horizon-rmse $${PER_HORIZON_RMSE}"; fi; \
 	eval "python3 scripts/make_edge_device_result.py --output $$OUTPUT $$EXTRA_ARGS"
+
+edge-ingest-example:
+	@RUN_ID="$${RUN_ID:?RUN_ID is required (e.g. make edge-ingest-example RUN_ID=edge-demo-001)}"; \
+	DEVICE_PROFILE="$${DEVICE_PROFILE:-android_high_end}"; \
+	DEVICE_JSON="$${DEVICE_JSON:-/tmp/$$RUN_ID-$$DEVICE_PROFILE-device.json}"; \
+	EXTRA_ARGS=""; \
+	if [ -n "$${FROM_REPORT_JSON:-}" ]; then EXTRA_ARGS="$$EXTRA_ARGS --from-report-json $${FROM_REPORT_JSON}"; fi; \
+	if [ -n "$${RUNTIME_STACK:-}" ]; then EXTRA_ARGS="$$EXTRA_ARGS --runtime-stack $${RUNTIME_STACK}"; else EXTRA_ARGS="$$EXTRA_ARGS --runtime-stack tflite"; fi; \
+	if [ -n "$${FALLBACK_CHAIN:-}" ]; then EXTRA_ARGS="$$EXTRA_ARGS --fallback-chain $${FALLBACK_CHAIN}"; else EXTRA_ARGS="$$EXTRA_ARGS --fallback-chain tflite,keras"; fi; \
+	if [ -n "$${STATUS:-}" ]; then EXTRA_ARGS="$$EXTRA_ARGS --status $${STATUS}"; fi; \
+	if [ -n "$${LATENCY_P50_MS:-}" ]; then EXTRA_ARGS="$$EXTRA_ARGS --latency-p50-ms $${LATENCY_P50_MS}"; else EXTRA_ARGS="$$EXTRA_ARGS --latency-p50-ms 18.4"; fi; \
+	if [ -n "$${LATENCY_P95_MS:-}" ]; then EXTRA_ARGS="$$EXTRA_ARGS --latency-p95-ms $${LATENCY_P95_MS}"; else EXTRA_ARGS="$$EXTRA_ARGS --latency-p95-ms 24.7"; fi; \
+	if [ -n "$${MEMORY_PEAK_MB:-}" ]; then EXTRA_ARGS="$$EXTRA_ARGS --memory-peak-mb $${MEMORY_PEAK_MB}"; else EXTRA_ARGS="$$EXTRA_ARGS --memory-peak-mb 212.0"; fi; \
+	if [ -n "$${SIZE_MB:-}" ]; then EXTRA_ARGS="$$EXTRA_ARGS --size-mb $${SIZE_MB}"; else EXTRA_ARGS="$$EXTRA_ARGS --size-mb 4.2"; fi; \
+	if [ -n "$${ATTEMPTS:-}" ]; then EXTRA_ARGS="$$EXTRA_ARGS --attempts $${ATTEMPTS}"; else EXTRA_ARGS="$$EXTRA_ARGS --attempts 200"; fi; \
+	if [ -n "$${FAILURES:-}" ]; then EXTRA_ARGS="$$EXTRA_ARGS --failures $${FAILURES}"; else EXTRA_ARGS="$$EXTRA_ARGS --failures 0"; fi; \
+	if [ -n "$${ACCURACY_RMSE:-}" ]; then EXTRA_ARGS="$$EXTRA_ARGS --accuracy-rmse $${ACCURACY_RMSE}"; else EXTRA_ARGS="$$EXTRA_ARGS --accuracy-rmse 0.94"; fi; \
+	if [ -n "$${ACCURACY_BASELINE_RMSE:-}" ]; then EXTRA_ARGS="$$EXTRA_ARGS --accuracy-baseline-rmse $${ACCURACY_BASELINE_RMSE}"; else EXTRA_ARGS="$$EXTRA_ARGS --accuracy-baseline-rmse 1.00"; fi; \
+	if [ -n "$${ACCURACY_RMSE_DEGRADATION_PCT:-}" ]; then EXTRA_ARGS="$$EXTRA_ARGS --accuracy-rmse-degradation-pct $${ACCURACY_RMSE_DEGRADATION_PCT}"; fi; \
+	if [ -n "$${ACCURACY_MAE:-}" ]; then EXTRA_ARGS="$$EXTRA_ARGS --accuracy-mae $${ACCURACY_MAE}"; else EXTRA_ARGS="$$EXTRA_ARGS --accuracy-mae 0.71"; fi; \
+	if [ -n "$${ACCURACY_WAPE:-}" ]; then EXTRA_ARGS="$$EXTRA_ARGS --accuracy-wape $${ACCURACY_WAPE}"; else EXTRA_ARGS="$$EXTRA_ARGS --accuracy-wape 8.9"; fi; \
+	if [ -n "$${ACCURACY_MAX_ABS_DIFF:-}" ]; then EXTRA_ARGS="$$EXTRA_ARGS --accuracy-max-abs-diff $${ACCURACY_MAX_ABS_DIFF}"; else EXTRA_ARGS="$$EXTRA_ARGS --accuracy-max-abs-diff 1.42"; fi; \
+	if [ -n "$${ACCURACY_N_SAMPLES:-}" ]; then EXTRA_ARGS="$$EXTRA_ARGS --accuracy-n-samples $${ACCURACY_N_SAMPLES}"; else EXTRA_ARGS="$$EXTRA_ARGS --accuracy-n-samples 64"; fi; \
+	if [ -n "$${PER_HORIZON_RMSE:-}" ]; then EXTRA_ARGS="$$EXTRA_ARGS --per-horizon-rmse $${PER_HORIZON_RMSE}"; else EXTRA_ARGS="$$EXTRA_ARGS --per-horizon-rmse 0.81,0.93,1.05"; fi; \
+	echo "[edge-ingest-example] generating $$DEVICE_JSON"; \
+	eval "python3 scripts/make_edge_device_result.py --output $$DEVICE_JSON $$EXTRA_ARGS"; \
+	echo "[edge-ingest-example] ingesting $$DEVICE_PROFILE=$$DEVICE_JSON into RUN_ID=$$RUN_ID"; \
+	python3 scripts/ingest_edge_device_bench.py --run-id "$$RUN_ID" --artifacts-dir "$${ARTIFACTS_DIR:-artifacts}" --device-result "$$DEVICE_PROFILE=$$DEVICE_JSON"
 
 edge-ingest-device:
 	@RUN_ID="$${RUN_ID:?RUN_ID is required (e.g. make edge-ingest-device RUN_ID=...)}"; \
