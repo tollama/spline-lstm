@@ -6,6 +6,7 @@ Reference examples:
 
 - [mobile_bundle_android_tflite.json](/Users/yongchoelchoi/Documents/TollamaAI-Github/spline-lstm/examples/mobile_bundle_android_tflite.json)
 - [mobile_bundle_ios_onnx.json](/Users/yongchoelchoi/Documents/TollamaAI-Github/spline-lstm/examples/mobile_bundle_ios_onnx.json)
+- Validator: [validate_mobile_bundle.py](/Users/yongchoelchoi/Documents/TollamaAI-Github/spline-lstm/scripts/validate_mobile_bundle.py)
 
 ## Purpose
 
@@ -83,6 +84,10 @@ python3 scripts/make_mobile_bundle_manifest.py \
   --output /tmp/android_bundle.json \
   --bundle-id ai.tollama.splineforecast \
   --build-number 12034
+```
+
+```bash
+python3 scripts/validate_mobile_bundle.py --bundle-manifest /tmp/android_bundle.json
 ```
 
 ```bash

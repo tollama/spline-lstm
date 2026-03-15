@@ -91,6 +91,44 @@ jobs:
             --cache-root "${RUNNER_TEMP}/cache-${{ matrix.mode }}-${{ matrix.python-version }}" \
             --run-id "ci-edge-smoke-${{ matrix.mode }}-${{ matrix.python-version }}-${{ github.run_id }}-${{ github.run_attempt }}"
 
+  mobile-contracts:
+    name: Mobile Contracts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: "pip"
+
+      - name: Install package
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+
+      - name: Validate mobile bundle examples
+        run: |
+          python scripts/validate_mobile_bundle.py --bundle-manifest examples/mobile_bundle_android_tflite.json
+          python scripts/validate_mobile_bundle.py --bundle-manifest examples/mobile_bundle_ios_onnx.json
+
+      - name: Validate mobile benchmark examples ingest
+        run: |
+          python scripts/ingest_edge_device_bench.py \
+            --run-id ci-mobile-examples-${{ github.run_id }}-${{ github.run_attempt }} \
+            --artifacts-dir artifacts \
+            --device-result android_high_end=examples/mobile_benchmark_result_android_pixel8.json \
+            --device-result ios_high_end=examples/mobile_benchmark_result_ios_iphone15pro.json
+
+      - name: Validate mobile example JSON files
+        run: |
+          python -m json.tool examples/mobile_bundle_android_tflite.json >/dev/null
+          python -m json.tool examples/mobile_bundle_ios_onnx.json >/dev/null
+          python -m json.tool examples/mobile_benchmark_result_android_pixel8.json >/dev/null
+          python -m json.tool examples/mobile_benchmark_result_ios_iphone15pro.json >/dev/null
+
   edge-export-benchmark:
     name: Edge Export & Benchmark (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest

@@ -1,4 +1,4 @@
-.PHONY: help lint format type-check ci-gate quick-gate smoke-gate edge-smoke-env edge-wheelhouse-build edge-wheelhouse-install edge-make-mobile-bundle edge-make-device-result edge-ingest-example edge-release-example edge-ingest-device edge-release-gate edge-selection-lane full-regression pre-release-verify
+.PHONY: help lint format type-check ci-gate quick-gate smoke-gate edge-smoke-env edge-wheelhouse-build edge-wheelhouse-install edge-make-mobile-bundle edge-validate-mobile-bundle edge-make-device-result edge-ingest-example edge-release-example edge-ingest-device edge-release-gate edge-selection-lane full-regression pre-release-verify
 
 help:
 	@echo "Common operator flows"
@@ -12,6 +12,7 @@ help:
 	@echo "  make edge-wheelhouse-build # build offline wheelhouse for edge profiles"
 	@echo "  make edge-wheelhouse-install # install selected edge profile from a wheelhouse"
 	@echo "  make edge-make-mobile-bundle # generate Android/iOS mobile bundle manifest from export manifest"
+	@echo "  make edge-validate-mobile-bundle # validate Android/iOS mobile bundle manifest"
 	@echo "  make edge-make-device-result # generate a real-device benchmark JSON payload"
 	@echo "  make edge-ingest-example # generate + ingest one sample device benchmark payload for RUN_ID"
 	@echo "  make edge-release-example # generate + ingest + release-gate one sample device payload for RUN_ID"
@@ -86,6 +87,12 @@ edge-make-mobile-bundle:
 	if [ -n "$${BUNDLE_RESOURCE_SUBDIR:-}" ]; then EXTRA_ARGS="$$EXTRA_ARGS --bundle-resource-subdir $${BUNDLE_RESOURCE_SUBDIR}"; fi; \
 	if [ -n "$${MINIMUM_IOS_VERSION:-}" ]; then EXTRA_ARGS="$$EXTRA_ARGS --minimum-ios-version $${MINIMUM_IOS_VERSION}"; fi; \
 	eval "python3 scripts/make_mobile_bundle_manifest.py --platform $$PLATFORM --export-manifest $$EXPORT_MANIFEST --output $$OUTPUT --bundle-id $$BUNDLE_ID $$EXTRA_ARGS"
+
+edge-validate-mobile-bundle:
+	@BUNDLE_MANIFEST="$${BUNDLE_MANIFEST:?BUNDLE_MANIFEST is required (e.g. make edge-validate-mobile-bundle BUNDLE_MANIFEST=examples/mobile_bundle_android_tflite.json)}"; \
+	EXTRA_ARGS=""; \
+	if [ "$${STRICT_PLATFORM_POLICY:-0}" = "1" ]; then EXTRA_ARGS="$$EXTRA_ARGS --strict-platform-policy"; fi; \
+	eval "python3 scripts/validate_mobile_bundle.py --bundle-manifest $$BUNDLE_MANIFEST $$EXTRA_ARGS"
 
 edge-make-device-result:
 	@OUTPUT="$${OUTPUT:?OUTPUT is required (e.g. make edge-make-device-result OUTPUT=/tmp/android_edge.json)}"; \

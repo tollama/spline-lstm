@@ -14,14 +14,14 @@
     "fallback_chain": ["onnx", "keras"],
     "quantization": "fp16",
     "relative_path": "BundleModels/model.onnx",
-    "source_export_path": "artifacts/exports/edge-demo-001/onnx/model.onnx",
+    "source_export_path": "examples/mobile_export_demo/onnx/model.onnx",
     "sha256": "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
     "size_bytes": 5347737
   },
   "export_artifacts": {
-    "export_manifest_path": "artifacts/exports/edge-demo-001/manifest.json",
-    "ota_manifest_path": "artifacts/exports/edge-demo-001/ota_manifest.json",
-    "edge_eval_path": "artifacts/exports/edge-demo-001/edge_eval.npz"
+    "export_manifest_path": "examples/mobile_export_demo/manifest.json",
+    "ota_manifest_path": "examples/mobile_export_demo/ota_manifest.json",
+    "edge_eval_path": "examples/mobile_export_demo/edge_eval.npz"
   },
   "input_specs": [
     {

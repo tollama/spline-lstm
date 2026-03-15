@@ -1,0 +1,42 @@
+{
+  "run_id": "edge-demo-001",
+  "quantization": "fp16",
+  "fallback_chain": ["tflite", "onnx", "keras"],
+  "input_specs": [
+    {
+      "name": "x",
+      "shape": [1, 24, 8],
+      "dtype": "float32"
+    }
+  ],
+  "runtime_compatibility": {
+    "tflite": {
+      "supported": true,
+      "path": "examples/mobile_export_demo/tflite/model.tflite",
+      "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      "size_bytes": 4404019
+    },
+    "onnx": {
+      "supported": true,
+      "path": "examples/mobile_export_demo/onnx/model.onnx",
+      "sha256": "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
+      "size_bytes": 5347737
+    },
+    "keras": {
+      "supported": true,
+      "path": "examples/mobile_export_demo/keras/model.keras"
+    }
+  },
+  "edge_evaluation": {
+    "path": "examples/mobile_export_demo/edge_eval.npz"
+  },
+  "ota_manifest": {
+    "model_id": "spline-edge-forecast",
+    "semantic_version": "1.2.3",
+    "min_app_version": "1.12.0",
+    "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    "target_runtime": "tflite",
+    "rollback_to": null,
+    "run_id": "edge-demo-001"
+  }
+}

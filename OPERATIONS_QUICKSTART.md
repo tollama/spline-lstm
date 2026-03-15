@@ -186,4 +186,6 @@ If you only have measured numbers, `scripts/make_edge_device_result.py` will gen
 - Edge device schema: `docs/EDGE_DEVICE_RESULT_SCHEMA.md`
 - Mobile deployment: `docs/MOBILE_EDGE_DEPLOYMENT.md`
 - Mobile bundle schema: `docs/MOBILE_BUNDLE_SCHEMA.md`
+- Mobile checksum verification: `docs/MOBILE_CHECKSUM_VERIFICATION.md`
+- Mobile release checklist: `docs/MOBILE_RELEASE_CHECKLIST.md`
 - Release gate checklist: `RELEASE_CHECKLIST.md`

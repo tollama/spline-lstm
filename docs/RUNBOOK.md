@@ -7,6 +7,8 @@ Related docs:
 - Edge device result schema: `./EDGE_DEVICE_RESULT_SCHEMA.md`
 - Mobile deployment: `./MOBILE_EDGE_DEPLOYMENT.md`
 - Mobile bundle schema: `./MOBILE_BUNDLE_SCHEMA.md`
+- Mobile checksum verification: `./MOBILE_CHECKSUM_VERIFICATION.md`
+- Mobile release checklist: `./MOBILE_RELEASE_CHECKLIST.md`
 - Edge air-gapped deployment: `./EDGE_AIRGAPPED_RUNBOOK.md`
 - Release gate checklist (cutover): `../RELEASE_CHECKLIST.md`
 - GUI production hardening closeout: `./GUI_PROD_HARDENING_CLOSEOUT.md`

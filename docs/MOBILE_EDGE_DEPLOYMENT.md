@@ -7,6 +7,8 @@ Related docs:
 - [MOBILE_BUNDLE_SCHEMA.md](/Users/yongchoelchoi/Documents/TollamaAI-Github/spline-lstm/docs/MOBILE_BUNDLE_SCHEMA.md)
 - [EDGE_DEVICE_RESULT_SCHEMA.md](/Users/yongchoelchoi/Documents/TollamaAI-Github/spline-lstm/docs/EDGE_DEVICE_RESULT_SCHEMA.md)
 - [EDGE_AIRGAPPED_RUNBOOK.md](/Users/yongchoelchoi/Documents/TollamaAI-Github/spline-lstm/docs/EDGE_AIRGAPPED_RUNBOOK.md)
+- [MOBILE_CHECKSUM_VERIFICATION.md](/Users/yongchoelchoi/Documents/TollamaAI-Github/spline-lstm/docs/MOBILE_CHECKSUM_VERIFICATION.md)
+- [MOBILE_RELEASE_CHECKLIST.md](/Users/yongchoelchoi/Documents/TollamaAI-Github/spline-lstm/docs/MOBILE_RELEASE_CHECKLIST.md)
 
 ## 1. Deployment flow
 
@@ -66,6 +68,13 @@ Reference examples:
 - [mobile_bundle_android_tflite.json](/Users/yongchoelchoi/Documents/TollamaAI-Github/spline-lstm/examples/mobile_bundle_android_tflite.json)
 - [mobile_bundle_ios_onnx.json](/Users/yongchoelchoi/Documents/TollamaAI-Github/spline-lstm/examples/mobile_bundle_ios_onnx.json)
 
+Validate a generated bundle before app packaging:
+
+```bash
+python3 scripts/validate_mobile_bundle.py --bundle-manifest /tmp/android_bundle.json
+make edge-validate-mobile-bundle BUNDLE_MANIFEST=/tmp/android_bundle.json
+```
+
 ## 4. Native benchmark result contract
 
 The phone-side benchmark emitter should produce the same ingest JSON schema already used by edge devices, with an additional optional `metadata` block.
@@ -89,6 +98,8 @@ Reference examples:
 
 - [mobile_benchmark_result_android_pixel8.json](/Users/yongchoelchoi/Documents/TollamaAI-Github/spline-lstm/examples/mobile_benchmark_result_android_pixel8.json)
 - [mobile_benchmark_result_ios_iphone15pro.json](/Users/yongchoelchoi/Documents/TollamaAI-Github/spline-lstm/examples/mobile_benchmark_result_ios_iphone15pro.json)
+- [MobileBenchmarkEmitter.kt](/Users/yongchoelchoi/Documents/TollamaAI-Github/spline-lstm/examples/mobile/android/MobileBenchmarkEmitter.kt)
+- [MobileBenchmarkEmitter.swift](/Users/yongchoelchoi/Documents/TollamaAI-Github/spline-lstm/examples/mobile/ios/MobileBenchmarkEmitter.swift)
 
 Those payloads can be ingested directly:
 
@@ -137,8 +148,7 @@ Preferred:
 
 This repository now defines the contract and generation flow, but the following still require the actual mobile app and devices:
 
-- native Android benchmark emitter implementation
-- native iOS benchmark emitter implementation
-- app-side model checksum verification
+- wiring the Android emitter template into the actual app benchmark path
+- wiring the iOS emitter template into the actual app benchmark path
 - app OTA/update rollback behavior
 - device-farm or real-device validation on the supported phone matrix

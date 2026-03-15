@@ -17,6 +17,8 @@ def _write_export_manifest(root: Path) -> Path:
     onnx_path.parent.mkdir(parents=True, exist_ok=True)
     tflite_path.write_bytes(b"tflite-model")
     onnx_path.write_bytes(b"onnx-model")
+    edge_eval_path = export_root / "edge_eval.npz"
+    edge_eval_path.write_bytes(b"edge-eval")
     payload = {
         "run_id": "mobile-demo-001",
         "quantization": "fp16",
@@ -37,7 +39,7 @@ def _write_export_manifest(root: Path) -> Path:
             },
             "keras": {"supported": True, "path": str(export_root / "best.keras")},
         },
-        "edge_evaluation": {"path": str(export_root / "edge_eval.npz")},
+        "edge_evaluation": {"path": str(edge_eval_path)},
         "ota_manifest": {
             "model_id": "spline-edge-forecast",
             "semantic_version": "1.2.3",
@@ -95,6 +97,20 @@ def test_make_mobile_bundle_manifest_selects_platform_runtime_defaults(tmp_path:
     assert ios_payload["platform_config"]["runtime_library"] == "onnxruntime-mobile"
     assert ios_payload["model"]["relative_path"] == "BundleModels/model.onnx"
 
+    for out_path in (android_out, ios_out):
+        proc = subprocess.run(
+            [
+                sys.executable,
+                "scripts/validate_mobile_bundle.py",
+                "--bundle-manifest",
+                str(out_path),
+            ],
+            cwd=str(root),
+            capture_output=True,
+            text=True,
+        )
+        assert proc.returncode == 0, proc.stderr
+
 
 def test_mobile_device_ingest_preserves_metadata_block(tmp_path: Path) -> None:
     source = tmp_path / "android_mobile.json"
@@ -142,3 +158,23 @@ def test_mobile_device_ingest_preserves_metadata_block(tmp_path: Path) -> None:
     result = out["results"][0]
     assert result["metadata"]["platform"] == "android"
     assert result["metadata"]["device_model"] == "Pixel 8"
+
+
+def test_mobile_bundle_examples_validate() -> None:
+    root = Path(__file__).resolve().parents[1]
+    for path in (
+        "examples/mobile_bundle_android_tflite.json",
+        "examples/mobile_bundle_ios_onnx.json",
+    ):
+        proc = subprocess.run(
+            [
+                sys.executable,
+                "scripts/validate_mobile_bundle.py",
+                "--bundle-manifest",
+                path,
+            ],
+            cwd=str(root),
+            capture_output=True,
+            text=True,
+        )
+        assert proc.returncode == 0, proc.stderr
