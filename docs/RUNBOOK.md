@@ -135,6 +135,8 @@ python3 -m src.preprocessing.smoke --run-id <RUN_ID>
 - 예시 payload:
   - `../examples/edge_device_result_android_high_end.json`
   - `../examples/edge_device_result_ios_high_end.json`
+- 템플릿 생성:
+  - `../scripts/make_edge_device_result.py`
 - release gate는 device report의 `accuracy.rmse_degradation_pct`가 있으면 그것을 우선 사용하고, 없으면 offline metrics JSON으로 fallback 한다.
 
 ## 7) 최소 운영 점검 체크리스트

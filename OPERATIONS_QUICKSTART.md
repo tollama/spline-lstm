@@ -51,6 +51,20 @@ python3 scripts/ingest_edge_device_bench.py \
   --run-id edge-ops-001 \
   --artifacts-dir artifacts \
   --device-result android_high_end=/tmp/android_edge.json
+
+# 3a) or generate a device JSON template from measured values
+python3 scripts/make_edge_device_result.py \
+  --output /tmp/android_edge.json \
+  --runtime-stack tflite \
+  --fallback-chain tflite,keras \
+  --latency-p50-ms 18.4 \
+  --latency-p95-ms 24.7 \
+  --memory-peak-mb 212.0 \
+  --size-mb 4.2 \
+  --attempts 200 \
+  --failures 0 \
+  --accuracy-rmse 0.94 \
+  --accuracy-baseline-rmse 1.00
 ```
 
 Benchmark reports now surface:
@@ -63,6 +77,7 @@ Benchmark reports now surface:
 
 Preferred real-device JSON also includes an `accuracy` block. See `docs/EDGE_DEVICE_RESULT_SCHEMA.md`.
 You can start from `examples/edge_device_result_android_high_end.json` or `examples/edge_device_result_ios_high_end.json`.
+If you only have measured numbers, `scripts/make_edge_device_result.py` will generate a valid payload for ingest.
 
 ## Troubleshooting pointers
 

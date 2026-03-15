@@ -6,6 +6,7 @@ Reference example:
 
 - `examples/edge_device_result_android_high_end.json`
 - `examples/edge_device_result_ios_high_end.json`
+- Generator script: `scripts/make_edge_device_result.py`
 
 ## Purpose
 
@@ -123,4 +124,24 @@ python3 scripts/ingest_edge_device_bench.py \
   --run-id <run_id> \
   --artifacts-dir artifacts \
   --device-result ios_high_end=examples/edge_device_result_ios_high_end.json
+```
+
+Generating a payload instead of hand-writing JSON:
+
+```bash
+python3 scripts/make_edge_device_result.py \
+  --output /tmp/android_edge.json \
+  --runtime-stack tflite \
+  --fallback-chain tflite,keras \
+  --latency-p50-ms 18.4 \
+  --latency-p95-ms 24.7 \
+  --memory-peak-mb 212.0 \
+  --size-mb 4.2 \
+  --attempts 200 \
+  --failures 0 \
+  --accuracy-rmse 0.94 \
+  --accuracy-baseline-rmse 1.00 \
+  --accuracy-mae 0.71 \
+  --accuracy-wape 8.9 \
+  --per-horizon-rmse 0.81,0.93,1.05
 ```
