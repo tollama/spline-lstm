@@ -65,6 +65,20 @@ python3 scripts/make_edge_device_result.py \
   --failures 0 \
   --accuracy-rmse 0.94 \
   --accuracy-baseline-rmse 1.00
+
+# 3b) same flow via Makefile
+make edge-make-device-result \
+  OUTPUT=/tmp/android_edge.json \
+  RUNTIME_STACK=tflite \
+  FALLBACK_CHAIN=tflite,keras \
+  LATENCY_P50_MS=18.4 \
+  LATENCY_P95_MS=24.7 \
+  MEMORY_PEAK_MB=212.0 \
+  SIZE_MB=4.2 \
+  ATTEMPTS=200 \
+  FAILURES=0 \
+  ACCURACY_RMSE=0.94 \
+  ACCURACY_BASELINE_RMSE=1.00
 ```
 
 Benchmark reports now surface:
