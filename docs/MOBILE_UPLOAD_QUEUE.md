@@ -5,6 +5,7 @@ Reference policy for delivering phone benchmark telemetry when the app is offlin
 Related references:
 
 - [MOBILE_TELEMETRY_UPLOAD.md](/Users/yongchoelchoi/Documents/TollamaAI-Github/spline-lstm/docs/MOBILE_TELEMETRY_UPLOAD.md)
+- [MOBILE_APP_INTEGRATION_HANDOFF.md](/Users/yongchoelchoi/Documents/TollamaAI-Github/spline-lstm/docs/MOBILE_APP_INTEGRATION_HANDOFF.md)
 - [MobileBenchmarkQueueStore.kt](/Users/yongchoelchoi/Documents/TollamaAI-Github/spline-lstm/examples/mobile/android/MobileBenchmarkQueueStore.kt)
 - [MobileBenchmarkReplayWorker.kt](/Users/yongchoelchoi/Documents/TollamaAI-Github/spline-lstm/examples/mobile/android/MobileBenchmarkReplayWorker.kt)
 - [MobileBenchmarkQueueStore.swift](/Users/yongchoelchoi/Documents/TollamaAI-Github/spline-lstm/examples/mobile/ios/MobileBenchmarkQueueStore.swift)

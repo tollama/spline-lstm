@@ -11,6 +11,8 @@ Related docs:
 - [MOBILE_RELEASE_CHECKLIST.md](/Users/yongchoelchoi/Documents/TollamaAI-Github/spline-lstm/docs/MOBILE_RELEASE_CHECKLIST.md)
 - [MOBILE_TELEMETRY_UPLOAD.md](/Users/yongchoelchoi/Documents/TollamaAI-Github/spline-lstm/docs/MOBILE_TELEMETRY_UPLOAD.md)
 - [MOBILE_UPLOAD_QUEUE.md](/Users/yongchoelchoi/Documents/TollamaAI-Github/spline-lstm/docs/MOBILE_UPLOAD_QUEUE.md)
+- [MOBILE_APP_INTEGRATION_HANDOFF.md](/Users/yongchoelchoi/Documents/TollamaAI-Github/spline-lstm/docs/MOBILE_APP_INTEGRATION_HANDOFF.md)
+- [MOBILE_DEVICE_FARM_RUNBOOK.md](/Users/yongchoelchoi/Documents/TollamaAI-Github/spline-lstm/docs/MOBILE_DEVICE_FARM_RUNBOOK.md)
 
 ## 1. Deployment flow
 
