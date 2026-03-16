@@ -27,7 +27,7 @@ make quick-gate
 RUN_ID=ops-quick-001 EPOCHS=1 make smoke-gate
 
 # covariates and cross-validation (Phase 6 Core)
-python3 src/training/runner.py --synthetic --future-covariates temp,promo --cv-splits 3 --epochs 1
+python3 -m src.training.runner --synthetic --future-covariates temp,promo --cv-splits 3 --epochs 1
 ```
 
 ## Edge install modes

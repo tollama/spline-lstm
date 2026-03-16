@@ -249,8 +249,9 @@ spline-lstm/
 ├── src/
 │   ├── data/                  # Synthetic time-series generation
 │   ├── preprocessing/         # Core spline, scaling, and windowing logic
-│   ├── models/                # TensorFlow LSTM/GRU implementations
-│   ├── training/              # Model compilation, training, and artifact persistence
+│   ├── models/                # TensorFlow LSTM/GRU/Attention-LSTM/TCN/DLinear
+│   ├── training/              # Training, evaluation, edge export, and artifact persistence
+│   ├── covariates/            # Covariate spec validation (JSON schema contracts)
 │   └── utils/                 # Reproducibility and run ID utilities
 ├── backend/                   # FastAPI service for model inference and agent tools
 ├── scripts/                   # Operational bash scripts (e2e, smoke tests, compare)

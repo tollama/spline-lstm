@@ -199,15 +199,15 @@ python3 -m src.preprocessing.smoke --run-id <RUN_ID>
 - `make edge-wheelhouse-install MODE=<ops|benchmark-onnx|train-export>`
   - 용도: edge node에서 `--no-index --find-links` 기반 설치 + validator 실행
 
-## 7) 최소 운영 점검 체크리스트
+## 8) 최소 운영 점검 체크리스트
 - [ ] E2E 명령 1회 성공
 - [ ] metrics/report/checkpoint/preprocessor 생성 확인
 - [ ] metrics JSON 내 주요 키(`mae/mse/rmse/mape/r2`) 확인
 - [ ] run_id mismatch 테스트(의도적 불일치) 시 실패 확인
 
-## 8) Backend API 보안 기본값 (GUI backend)
+## 8-1) Backend API 보안 기본값 (GUI backend)
 
-### 8.1 인증 모드
+### 8-1.1 인증 모드
 - `SPLINE_DEV_MODE=1` (기본 dev): API 인증 **선택**(backward-compatible)
 - `SPLINE_DEV_MODE=0` (prod-like): API 인증 **필수**
   - `SPLINE_API_TOKEN` 미설정 시 서버 시작 실패(fail-closed)
@@ -215,7 +215,7 @@ python3 -m src.preprocessing.smoke --run-id <RUN_ID>
 
 헬스체크(`/api/v1/health`)는 무인증으로 유지.
 
-### 8.2 CORS / Host / 기본 헤더
+### 8-1.2 CORS / Host / 기본 헤더
 - CORS 허용 origin: `SPLINE_CORS_ORIGINS`(comma-separated)
   - dev 기본: `http://localhost,http://127.0.0.1,http://localhost:3000,http://127.0.0.1:3000`
   - prod 권장: 운영 UI 도메인만 명시
@@ -226,7 +226,7 @@ python3 -m src.preprocessing.smoke --run-id <RUN_ID>
   - `Referrer-Policy: no-referrer`
   - `Cache-Control: no-store`
 
-### 8.3 오류 응답 정책
+### 8-1.3 오류 응답 정책
 - 내부 예외(5xx): 클라이언트에는 `{"ok": false, "error": "internal server error"}`만 반환
 - 상세 스택/민감정보는 서버 로그에만 기록
 
@@ -235,4 +235,5 @@ python3 -m src.preprocessing.smoke --run-id <RUN_ID>
 - Phase 2: 학습/평가 기본 플로우 및 아티팩트 저장 적용
 - Phase 3: 단일 CLI runner(`src.training.runner`) 운영 가능
 - Phase 4: E2E 스크립트 + 스모크 게이트 + run_id 불일치 차단 적용
-- Phase 5(PoC): GRU 비교 및 covariate/multivariate 전처리 경로 제공
+- Phase 5: GRU 비교, Attention-LSTM, multivariate 전처리, TCN/DLinear 모델 제공
+- Phase 6: Static/Future covariates, 교차검증(`--cv-splits`), covariate spec 계약, Edge export(TFLite/ONNX + 양자화), 디바이스 벤치마크/릴리즈 게이트
