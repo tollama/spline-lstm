@@ -1,10 +1,123 @@
 import { useEffect, useMemo, useState } from "react";
-import { DashboardSummary, fetchDashboardSummary, formatApiError } from "../api/client";
+import { DashboardMobileBenchmarks, DashboardSummary, fetchDashboardSummary, formatApiError } from "../api/client";
 import { MiniSparkline } from "../components/MiniSparkline";
 import { useToast } from "../components/Toast";
 import { logUiEvent } from "../observability/logging";
 
 type DashboardUiState = "loading" | "loaded" | "empty" | "error";
+
+export function DashboardMobileTelemetrySection({
+  mobileBenchmarks,
+}: {
+  mobileBenchmarks?: DashboardMobileBenchmarks;
+}) {
+  const mobileLatencyTrend = (mobileBenchmarks?.recentUploads ?? [])
+    .slice()
+    .reverse()
+    .map((item) => item.latencyP95Ms)
+    .filter((value): value is number => typeof value === "number" && Number.isFinite(value));
+  const mobileSuccessRate = mobileBenchmarks?.successRate;
+  const mobileRuntimeCounts = mobileBenchmarks
+    ? Object.entries(mobileBenchmarks.runtimeStackCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 4)
+    : [];
+  const mobilePlatformCounts = mobileBenchmarks
+    ? Object.entries(mobileBenchmarks.platformCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+    : [];
+
+  return (
+    <section className="card">
+      <div className="card-head-row">
+        <h3>Mobile Telemetry</h3>
+        <div className="card-head-spark">
+          <MiniSparkline
+            values={mobileLatencyTrend}
+            label="최근 모바일 p95 latency 추세"
+            color="#f97316"
+            emptyText="모바일 업로드 없음"
+          />
+        </div>
+      </div>
+      {!mobileBenchmarks || mobileBenchmarks.totalReceipts === 0 ? (
+        <p className="muted">모바일 벤치마크 업로드가 아직 없습니다.</p>
+      ) : (
+        <>
+          <section className="grid-4">
+            <article className="card stat stat-compact">
+              <h4>Total Receipts</h4>
+              <p>{mobileBenchmarks.totalReceipts}</p>
+            </article>
+            <article className="card stat stat-compact">
+              <h4>Success Rate</h4>
+              <p>{mobileSuccessRate == null ? "-" : `${(mobileSuccessRate * 100).toFixed(1)}%`}</p>
+            </article>
+            <article className="card stat stat-compact">
+              <h4>Avg P95</h4>
+              <p>{mobileBenchmarks.averages.latencyP95Ms === null ? "-" : `${mobileBenchmarks.averages.latencyP95Ms} ms`}</p>
+            </article>
+            <article className="card stat stat-compact">
+              <h4>Avg RMSE</h4>
+              <p>{mobileBenchmarks.averages.rmse === null ? "-" : mobileBenchmarks.averages.rmse}</p>
+            </article>
+          </section>
+
+          <div className="mobile-summary-row">
+            <div>
+              <p className="muted summary-label">Runtime Mix</p>
+              <div className="chip-row">
+                {mobileRuntimeCounts.map(([runtime, count]) => (
+                  <span key={runtime} className="summary-chip">{runtime} {count}</span>
+                ))}
+              </div>
+            </div>
+            <div>
+              <p className="muted summary-label">Platform Mix</p>
+              <div className="chip-row">
+                {mobilePlatformCounts.map(([platform, count]) => (
+                  <span key={platform} className="summary-chip">{platform} {count}</span>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Receipt</th>
+                <th>Run ID</th>
+                <th>Profile</th>
+                <th>Status</th>
+                <th>Runtime</th>
+                <th>P95</th>
+                <th>RMSE</th>
+              </tr>
+            </thead>
+            <tbody>
+              {mobileBenchmarks.recentUploads.map((upload) => (
+                <tr key={upload.receiptId}>
+                  <td>{upload.receiptId}</td>
+                  <td>{upload.runId}</td>
+                  <td>{upload.deviceProfile}</td>
+                  <td>
+                    <span className={`status-badge ${upload.status === "succeeded" ? "status-success" : "status-fail"}`}>
+                      {upload.status}
+                    </span>
+                  </td>
+                  <td>{upload.runtimeStack}</td>
+                  <td>{upload.latencyP95Ms === null ? "-" : `${upload.latencyP95Ms} ms`}</td>
+                  <td>{upload.rmse === null ? "-" : upload.rmse}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      )}
+    </section>
+  );
+}
 
 export function DashboardPage() {
   const { showToast } = useToast();
@@ -59,27 +172,6 @@ export function DashboardPage() {
       .map((item) => item.value)
       .filter(Number.isFinite);
   }, [summary?.rmseHistory]);
-
-  const mobileLatencyTrend = useMemo(() => {
-    return (summary?.mobileBenchmarks?.recentUploads ?? [])
-      .slice()
-      .reverse()
-      .map((item) => item.latencyP95Ms)
-      .filter((value): value is number => typeof value === "number" && Number.isFinite(value));
-  }, [summary?.mobileBenchmarks?.recentUploads]);
-
-  const mobileBenchmarks = summary?.mobileBenchmarks;
-  const mobileSuccessRate = mobileBenchmarks?.successRate;
-  const mobileRuntimeCounts = mobileBenchmarks
-    ? Object.entries(mobileBenchmarks.runtimeStackCounts)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 4)
-    : [];
-  const mobilePlatformCounts = mobileBenchmarks
-    ? Object.entries(mobileBenchmarks.platformCounts)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 3)
-    : [];
 
   if (uiState === "loading") {
     return <section className="card" aria-live="polite"><p className="muted">대시보드 데이터를 불러오는 중...</p></section>;
@@ -144,94 +236,7 @@ export function DashboardPage() {
           </table>
         )}
       </section>
-
-      <section className="card">
-        <div className="card-head-row">
-          <h3>Mobile Telemetry</h3>
-          <div className="card-head-spark">
-            <MiniSparkline
-              values={mobileLatencyTrend}
-              label="최근 모바일 p95 latency 추세"
-              color="#f97316"
-              emptyText="모바일 업로드 없음"
-            />
-          </div>
-        </div>
-        {!mobileBenchmarks || mobileBenchmarks.totalReceipts === 0 ? (
-          <p className="muted">모바일 벤치마크 업로드가 아직 없습니다.</p>
-        ) : (
-          <>
-            <section className="grid-4">
-              <article className="card stat stat-compact">
-                <h4>Total Receipts</h4>
-                <p>{mobileBenchmarks.totalReceipts}</p>
-              </article>
-              <article className="card stat stat-compact">
-                <h4>Success Rate</h4>
-                <p>{mobileSuccessRate == null ? "-" : `${(mobileSuccessRate * 100).toFixed(1)}%`}</p>
-              </article>
-              <article className="card stat stat-compact">
-                <h4>Avg P95</h4>
-                <p>{mobileBenchmarks.averages.latencyP95Ms === null ? "-" : `${mobileBenchmarks.averages.latencyP95Ms} ms`}</p>
-              </article>
-              <article className="card stat stat-compact">
-                <h4>Avg RMSE</h4>
-                <p>{mobileBenchmarks.averages.rmse === null ? "-" : mobileBenchmarks.averages.rmse}</p>
-              </article>
-            </section>
-
-            <div className="mobile-summary-row">
-              <div>
-                <p className="muted summary-label">Runtime Mix</p>
-                <div className="chip-row">
-                  {mobileRuntimeCounts.map(([runtime, count]) => (
-                    <span key={runtime} className="summary-chip">{runtime} {count}</span>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <p className="muted summary-label">Platform Mix</p>
-                <div className="chip-row">
-                  {mobilePlatformCounts.map(([platform, count]) => (
-                    <span key={platform} className="summary-chip">{platform} {count}</span>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Receipt</th>
-                  <th>Run ID</th>
-                  <th>Profile</th>
-                  <th>Status</th>
-                  <th>Runtime</th>
-                  <th>P95</th>
-                  <th>RMSE</th>
-                </tr>
-              </thead>
-              <tbody>
-                {mobileBenchmarks.recentUploads.map((upload) => (
-                  <tr key={upload.receiptId}>
-                    <td>{upload.receiptId}</td>
-                    <td>{upload.runId}</td>
-                    <td>{upload.deviceProfile}</td>
-                    <td>
-                      <span className={`status-badge ${upload.status === "succeeded" ? "status-success" : "status-fail"}`}>
-                        {upload.status}
-                      </span>
-                    </td>
-                    <td>{upload.runtimeStack}</td>
-                    <td>{upload.latencyP95Ms === null ? "-" : `${upload.latencyP95Ms} ms`}</td>
-                    <td>{upload.rmse === null ? "-" : upload.rmse}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </>
-        )}
-      </section>
+      <DashboardMobileTelemetrySection mobileBenchmarks={summary.mobileBenchmarks} />
     </>
   );
 }

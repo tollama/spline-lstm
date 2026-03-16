@@ -370,3 +370,65 @@ def test_mobile_benchmark_summary_endpoint(monkeypatch, tmp_path: Path) -> None:
     assert data["runtime_stack_counts"]["tflite"] == 1
     assert data["platform_counts"]["android"] == 1
     assert data["recent_uploads"]
+
+
+def test_dashboard_summary_includes_mobile_aggregation(monkeypatch, tmp_path: Path) -> None:
+    client = _load_app(monkeypatch, tmp_path / "artifacts")
+    valid_payload = {
+        "run_id": "mobile-dashboard-001",
+        "device_profile": "android_high_end",
+        "expected_platform": "android",
+        "benchmark_result": {
+            "runtime_stack": "tflite",
+            "latency_ms": {"p50": 15.0, "p95": 20.0},
+            "memory_peak_mb": 190.0,
+            "size_mb": 4.2,
+            "attempts": 120,
+            "failures": 0,
+            "metadata": {
+                "platform": "android",
+                "device_model": "Pixel 8",
+                "os_version": "Android 15",
+                "app_version": "1.12.0",
+                "build_number": "12034",
+                "bundle_id": "ai.tollama.splineforecast",
+            },
+            "accuracy": {"rmse": 0.93, "baseline_rmse": 1.0},
+        },
+    }
+    invalid_payload = {
+        "run_id": "mobile-dashboard-001",
+        "device_profile": "ios_high_end",
+        "expected_platform": "ios",
+        "benchmark_result": {
+            "runtime_stack": "onnx",
+            "latency_ms": {"p50": 18.0, "p95": 24.0},
+            "memory_peak_mb": 210.0,
+            "size_mb": 5.1,
+            "attempts": 120,
+            "failures": 0,
+            "metadata": {
+                "platform": "android",
+                "device_model": "Pixel 8",
+                "os_version": "Android 15",
+                "app_version": "1.12.0",
+                "build_number": "12034",
+                "bundle_id": "ai.tollama.splineforecast",
+            },
+            "accuracy": {"rmse": 0.95, "baseline_rmse": 1.02},
+        },
+    }
+
+    assert client.post("/api/v1/mobile/benchmarks:ingest", json=valid_payload).status_code == 200
+    assert client.post("/api/v1/mobile/benchmarks:ingest", json=invalid_payload).status_code == 400
+
+    response = client.get("/api/v1/dashboard/summary")
+    assert response.status_code == 200
+    mobile = response.json()["data"]["mobileBenchmarks"]
+    assert mobile["total_receipts"] == 2
+    assert mobile["successful_receipts"] == 1
+    assert mobile["failed_receipts"] == 1
+    assert mobile["status_counts"]["succeeded"] == 1
+    assert mobile["status_counts"]["validation_failed"] == 1
+    assert mobile["runtime_stack_counts"]["tflite"] == 1
+    assert mobile["platform_counts"]["android"] == 1
