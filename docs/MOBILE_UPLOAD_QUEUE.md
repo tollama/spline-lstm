@@ -30,6 +30,7 @@ Recommended integration points:
 - enqueue after benchmark creation succeeds
 - flush on app foreground, charger/Wi-Fi windows, or WorkManager background jobs
 - attach the same `idempotencyKey` on every replay attempt
+- pass the mobile signing secret into `MobileBenchmarkReplayWorker` when signed uploads are enabled
 
 ## iOS reference
 
@@ -43,9 +44,10 @@ Recommended integration points:
 - enqueue after benchmark serialization completes
 - flush on app foreground and background refresh opportunities
 - keep uploads small and bounded so replay does not block app startup
+- pass the mobile signing secret into `MobileBenchmarkReplayWorker` when signed uploads are enabled
 
 ## Operational notes
 
-- sign replayed requests the same way as first-send requests when `SPLINE_MOBILE_UPLOAD_SIGNING_SECRET` is enabled
+- the Kotlin/Swift replay workers now sign replayed requests the same way as first-send requests when a signing secret is provided
 - treat persisted queue files as telemetry, not the source of truth for model promotion
 - use the backend receipt endpoints to verify whether a replayed upload was accepted

@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 
 enum MobileBenchmarkUploader {
     static func makeRequest(
@@ -9,6 +10,7 @@ enum MobileBenchmarkUploader {
         deviceProfile: String,
         expectedPlatform: String,
         benchmarkPayload: [String: Any],
+        signingSecret: String? = nil,
         batch: Bool = false
     ) throws -> URLRequest {
         let body: [String: Any]
@@ -46,6 +48,18 @@ enum MobileBenchmarkUploader {
         if let idempotencyKey {
             request.setValue(idempotencyKey, forHTTPHeaderField: "X-Idempotency-Key")
         }
+        if let signingSecret, !signingSecret.isEmpty {
+            let timestamp = String(Int(Date().timeIntervalSince1970))
+            let signature = hmacSha256Hex(secret: signingSecret, message: "\(timestamp)\n" + String(decoding: data, as: UTF8.self))
+            request.setValue(timestamp, forHTTPHeaderField: "X-Mobile-Timestamp")
+            request.setValue(signature, forHTTPHeaderField: "X-Mobile-Signature")
+        }
         return request
+    }
+
+    private static func hmacSha256Hex(secret: String, message: String) -> String {
+        let key = SymmetricKey(data: Data(secret.utf8))
+        let digest = HMAC<SHA256>.authenticationCode(for: Data(message.utf8), using: key)
+        return digest.map { String(format: "%02x", $0) }.joined()
     }
 }

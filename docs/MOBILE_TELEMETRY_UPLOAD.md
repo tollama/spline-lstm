@@ -95,6 +95,11 @@ curl -X POST http://127.0.0.1:8000/api/v1/mobile/benchmarks:ingest-batch \
 - [MobileBenchmarkUploader.kt](/Users/yongchoelchoi/Documents/TollamaAI-Github/spline-lstm/examples/mobile/android/MobileBenchmarkUploader.kt)
 - [MobileBenchmarkUploader.swift](/Users/yongchoelchoi/Documents/TollamaAI-Github/spline-lstm/examples/mobile/ios/MobileBenchmarkUploader.swift)
 
+Both reference uploaders support optional signed requests by accepting a mobile upload signing secret and emitting:
+
+- `X-Mobile-Timestamp`
+- `X-Mobile-Signature`
+
 These references show how to wrap the benchmark payload produced by:
 
 - [MobileBenchmarkEmitter.kt](/Users/yongchoelchoi/Documents/TollamaAI-Github/spline-lstm/examples/mobile/android/MobileBenchmarkEmitter.kt)
@@ -129,6 +134,8 @@ Signature format:
 `hex(hmac_sha256(secret, "<timestamp>\\n<raw_request_body>"))`
 
 The backend also enforces timestamp freshness with `SPLINE_MOBILE_UPLOAD_TIMESTAMP_SKEW_SEC` (default `300` seconds).
+
+The Kotlin/Swift uploader references in `examples/mobile/` now implement this signing flow for both first-send and replayed queue uploads.
 
 ## Receipts
 

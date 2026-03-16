@@ -4,17 +4,20 @@ final class MobileBenchmarkReplayWorker {
     private let queueStore: MobileBenchmarkQueueStore
     private let endpoint: URL
     private let apiToken: String?
+    private let signingSecret: String?
     private let urlSession: URLSession
 
     init(
         queueStore: MobileBenchmarkQueueStore,
         endpoint: URL,
         apiToken: String?,
+        signingSecret: String? = nil,
         urlSession: URLSession = .shared
     ) {
         self.queueStore = queueStore
         self.endpoint = endpoint
         self.apiToken = apiToken
+        self.signingSecret = signingSecret
         self.urlSession = urlSession
     }
 
@@ -29,7 +32,8 @@ final class MobileBenchmarkReplayWorker {
                     runId: item.runId,
                     deviceProfile: item.deviceProfile,
                     expectedPlatform: item.expectedPlatform,
-                    benchmarkPayload: item.benchmarkPayload.mapValues(\.value)
+                    benchmarkPayload: item.benchmarkPayload.mapValues(\.value),
+                    signingSecret: signingSecret
                 )
                 let (_, response) = try await urlSession.data(for: request)
                 let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0

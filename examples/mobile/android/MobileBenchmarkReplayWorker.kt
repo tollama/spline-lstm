@@ -4,6 +4,7 @@ class MobileBenchmarkReplayWorker(
     private val queueStore: MobileBenchmarkQueueStore,
     private val endpoint: String,
     private val apiToken: String?,
+    private val signingSecret: String? = null,
 ) {
     fun flushReadyUploads() {
         queueStore.listReady().forEach { item ->
@@ -15,6 +16,7 @@ class MobileBenchmarkReplayWorker(
                 deviceProfile = item.deviceProfile,
                 expectedPlatform = item.expectedPlatform,
                 benchmarkPayloadJson = item.benchmarkPayloadJson,
+                signingSecret = signingSecret,
             )
 
             when {
